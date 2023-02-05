@@ -106,7 +106,7 @@ class CookieSessionUserHandler(AuthBase):
             'x-twitter-client-language': 'ja',
         }
 
-        # TweetDeck API (Twitter API 1.1) アクセス時の HTTP リクエストヘッダー
+        # TweetDeck API (Twitter API v1.1) アクセス時の HTTP リクエストヘッダー
         self._tweetdeck_api_headers = {
             'accept': 'text/plain, */*; q=0.01',
             'accept-encoding': 'gzip, deflate, br',
