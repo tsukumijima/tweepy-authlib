@@ -5,10 +5,11 @@ build-backend = "hatchling.build"
 [project]
 name = "tweepy-authlib"
 description = 'Twitter Web App (Web 版公式クライアント) の内部 API を使い、Tweepy でスクリーンネームとパスワードで認証するためのライブラリ'
+url = "https://github.com/tsukumijima/tweepy-authlib"
 readme = "Readme.md"
 requires-python = ">=3.8"
 license = "MIT"
-keywords = []
+keywords = ["Twitter", "Tweepy", "Library"]
 authors = [
     { name = "tsukumi" },
 ]
@@ -33,9 +34,9 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Documentation = "https://github.com/unknown/tweepy-authlib#readme"
-Issues = "https://github.com/unknown/tweepy-authlib/issues"
-Source = "https://github.com/unknown/tweepy-authlib"
+Documentation = "https://github.com/tsukumijima/tweepy-authlib"
+Issues = "https://github.com/tsukumijima/tweepy-authlib/issues"
+Source = "https://github.com/tsukumijima/tweepy-authlib"
 
 [tool.hatch.version]
 path = "tweepy_authlib/__about__.py"
