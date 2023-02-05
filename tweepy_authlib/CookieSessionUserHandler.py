@@ -31,14 +31,31 @@ class CookieSessionUserHandler(AuthBase):
     sec_ch_ua = '"Not_A Brand";v="99", "Google Chrome";v="109", "Chromium";v="109"';
 
 
-    def __init__(self, cookies: Optional[RequestsCookieJar] = None, username: Optional[str] = None, password: Optional[str] = None) -> None:
+    def __init__(self, cookies: Optional[RequestsCookieJar] = None, screen_name: Optional[str] = None, password: Optional[str] = None) -> None:
+        """
+        CookieSessionUserHandler を初期化する
+        cookies と screen_name, password のどちらかを指定する必要がある
 
-        self.username = username
+        Args:
+            cookies (Optional[RequestsCookieJar], optional): リクエスト時に利用する Cookie. Defaults to None.
+            screen_name (Optional[str], optional): Twitter のスクリーンネーム (@は含まない). Defaults to None.
+            password (Optional[str], optional): Twitter のパスワード. Defaults to None.
+        """
+
+        self.screen_name = screen_name
         self.password = password
 
-        # Cookie が指定されていないのに、ユーザー名とパスワードが指定されていない場合はエラー
-        if cookies is None and (username is None or password is None):
-            raise ValueError('Either cookie or username and password must be specified.')
+        # Cookie が指定されていないのに、スクリーンネームまたはパスワードが (もしくはどちらも) 指定されていない
+        if cookies is None and (self.screen_name is None or self.password is None):
+            raise ValueError('Either cookie or screen_name and password must be specified.')
+
+        # スクリーンネームが空文字列
+        if self.screen_name == '':
+            raise ValueError('screen_name must not be empty string.')
+
+        # パスワードが空文字列
+        if self.password == '':
+            raise ValueError('password must not be empty string.')
 
         # メモ: 本来は accept-encoding に br (Brotli) も指定すべきだが、urllib3 が Brotli をサポートしていない
         # (正確にはサポートしているが、別途 Brotli ライブラリをインストールする必要がある) ため、gzip と deflate のみ指定している
@@ -275,7 +292,7 @@ class CookieSessionUserHandler(AuthBase):
 
         # 難読化された JavaScript の中から ui_metrics を取得する関数を抽出
         js_inst_function = js_inst.split('\n')[2]
-        js_inst_function_name = re.search(re.compile(r'function [a-zA-Z]+'), js_inst_function).group().replace('function ', '')
+        js_inst_function_name = re.search(re.compile(r'function [a-zA-Z]+'), js_inst_function).group().replace('function ', '')  # type: ignore
 
         # 難読化された JavaScript を実行するために簡易的に DOM API をモックする
         ## とりあえず最低限必要そうなものだけ
@@ -476,7 +493,7 @@ class CookieSessionUserHandler(AuthBase):
         # 怪しまれないように、2秒～4秒の間にランダムな時間待機
         time.sleep(random.uniform(2.0, 4.0))
 
-        # ユーザー名を認証フローに送信
+        # スクリーンネームを認証フローに送信
         flow_03_response = self._session.post('https://api.twitter.com/1.1/onboarding/task.json', json={
             'flow_token': get_flow_token(flow_02_response),
             'subtask_inputs': [
@@ -488,7 +505,7 @@ class CookieSessionUserHandler(AuthBase):
                                 'key': 'user_identifier',
                                 'response_data': {
                                     'text_data': {
-                                        'result': self.username,
+                                        'result': self.screen_name,
                                     }
                                 }
                             },
