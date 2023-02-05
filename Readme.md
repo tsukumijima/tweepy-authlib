@@ -16,9 +16,9 @@
 
 ## Description
 
-Tweepy で Web 版公式クライアントの内部 API を利用し、スクリーンネームとパスワードを指定した Cookie ベースでの認証を行うためのライブラリです。
+[Tweepy](https://github.com/tweepy/tweepy) で Web 版公式クライアントの内部 API を利用し、スクリーンネームとパスワードを指定した Cookie ベースでの認証を行うためのライブラリです。
 
-スクリーンネーム (ex: @elonmusk) とパスワードを指定して認証し、取得した Cookie などの認証情報で Twitter API v1.1 にアクセスできます。  
+スクリーンネーム (ex: `@elonmusk`) とパスワードを指定して認証し、取得した Cookie などの認証情報で Twitter API v1.1 にアクセスできます。  
 毎回ログインしていては面倒 & 不審なアクセス扱いされそうなので、Cookie をファイルなどに保存し、次回以降はその Cookie を使ってログインする機能もあります。
 
 Tweepy を利用しているソースコードのうち、認証部分 (`tweepy.auth.OAuth1UserHandler`) を `tweepy_authlib.CookieSessionUserHandler` に置き換えるだけで、かんたんに Cookie ベースの認証に変更できます！
