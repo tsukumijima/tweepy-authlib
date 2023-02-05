@@ -4,22 +4,26 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tweepy-authlib"
-description = ''
+description = 'Twitter Web App (Web 版公式クライアント) の内部 API を使い、Tweepy でスクリーンネームとパスワードで認証するためのライブラリ'
 readme = "Readme.md"
 requires-python = ">=3.8"
 license = "MIT"
 keywords = []
 authors = [
-  { name = "tsukumi", email = "tsukumijima@users.noreply.github.com" },
+    { name = "tsukumi" },
 ]
 classifiers = [
-  "Development Status :: 4 - Beta",
-  "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: Implementation :: CPython",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: Japanese",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
     "Brotli>=1.0.9",
@@ -38,9 +42,9 @@ path = "tweepy_authlib/__about__.py"
 
 [tool.hatch.envs.default]
 dependencies = [
-  "pytest",
-  "pytest-cov",
-  "pytest-dotenv",
+    "pytest",
+    "pytest-cov",
+    "pytest-dotenv",
 ]
 [tool.hatch.envs.default.scripts]
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=tweepy_authlib --cov=tests {args}"
@@ -53,12 +57,12 @@ python = ["38", "39", "310", "311"]
 branch = true
 parallel = true
 omit = [
-  "tweepy_authlib/__about__.py",
+    "tweepy_authlib/__about__.py",
 ]
 
 [tool.coverage.report]
 exclude_lines = [
-  "no cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
 ]
