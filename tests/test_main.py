@@ -36,6 +36,8 @@ def test_06():
             pickle.dump(auth_handler.get_cookies(), f)
         api = tweepy.API(auth_handler)
         assert api.verify_credentials().screen_name == os.environ['TWITTER_SCREEN_NAME']
+        assert api.user_timeline(screen_name='elonmusk')[0].user.screen_name == 'elonmusk'
+        api.home_timeline()
     else:
         pytest.skip('TWITTER_SCREEN_NAME or TWITTER_PASSWORD is not set.')
 
@@ -48,5 +50,7 @@ def test_07():
         os.unlink('cookie.pickle')
         api = tweepy.API(auth_handler)
         assert api.verify_credentials().screen_name == os.environ['TWITTER_SCREEN_NAME']
+        assert api.user_timeline(screen_name='elonmusk')[0].user.screen_name == 'elonmusk'
+        api.home_timeline()
     else:
         pytest.skip('TWITTER_SCREEN_NAME or TWITTER_PASSWORD is not set.')

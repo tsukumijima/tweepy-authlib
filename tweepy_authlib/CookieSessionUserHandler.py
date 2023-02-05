@@ -1,11 +1,11 @@
 
 import binascii
-import time
 import js2py
 import json
 import random
 import re
 import requests
+import time
 import tweepy
 from js2py.base import JsObjectWrapper
 from requests.auth import AuthBase
@@ -57,13 +57,10 @@ class CookieSessionUserHandler(AuthBase):
         if self.password == '':
             raise ValueError('password must not be empty string.')
 
-        # メモ: 本来は accept-encoding に br (Brotli) も指定すべきだが、urllib3 が Brotli をサポートしていない
-        # (正確にはサポートしているが、別途 Brotli ライブラリをインストールする必要がある) ため、gzip と deflate のみ指定している
-
         # HTML 取得時の HTTP リクエストヘッダー
         self._html_headers = {
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-            'accept-encoding': 'gzip, deflate',
+            'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'ja',
             'cache-control': 'no-cache',
             'pragma': 'no-cache',
@@ -89,7 +86,7 @@ class CookieSessionUserHandler(AuthBase):
         # 認証フロー API アクセス時の HTTP リクエストヘッダー
         self._auth_flow_api_headers = {
             'accept': '*/*',
-            'accept-encoding': 'gzip, deflate',
+            'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'ja',
             'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
             'cache-control': 'no-cache',
@@ -112,7 +109,7 @@ class CookieSessionUserHandler(AuthBase):
         # TweetDeck API (Twitter API 1.1) アクセス時の HTTP リクエストヘッダー
         self._tweetdeck_api_headers = {
             'accept': 'text/plain, */*; q=0.01',
-            'accept-encoding': 'gzip, deflate',
+            'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'ja',
             'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAAF7aAAAAAAAASCiRjWvh7R5wxaKkFp7MM%2BhYBqM%3DbQ0JPmjU9F6ZoMhDfI4uTNAaQuTDm2uO9x3WFVr2xBZ2nhjdP0',
             'cache-control': 'no-cache',

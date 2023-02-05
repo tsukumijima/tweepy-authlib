@@ -20,9 +20,9 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
-  "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
+    "Brotli>=1.0.9",
     "js2py>=0.74",
     "tweepy>=4.12.1",
 ]
