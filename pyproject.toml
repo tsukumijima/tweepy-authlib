@@ -50,6 +50,7 @@ dependencies = [
 [tool.hatch.envs.default.scripts]
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=tweepy_authlib --cov=tests {args}"
 no-cov = "cov --no-cov {args}"
+test = "python tests/test_main.py"
 
 [[tool.hatch.envs.test.matrix]]
 python = ["38", "39", "310", "311"]

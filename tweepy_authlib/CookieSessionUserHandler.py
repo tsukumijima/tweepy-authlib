@@ -135,13 +135,7 @@ class CookieSessionUserHandler(AuthBase):
 
         # API からレスポンスが返ってきた際に自動で CSRF トークンを更新する
         ## 認証に成功したタイミングで、Cookie の "ct0" 値 (CSRF トークン) がクライアント側で生成したものから、サーバー側で生成したものに更新される
-        def update_csrf_token(response: requests.Response, *args, **kwargs) -> None:
-            csrf_token = response.cookies.get('ct0')
-            if csrf_token:
-                self._auth_flow_api_headers['x-csrf-token'] = csrf_token
-                self._tweetdeck_api_headers['x-csrf-token'] = csrf_token
-                self._session.headers['x-csrf-token'] = csrf_token
-        self._session.hooks['response'].append(update_csrf_token)
+        self._session.hooks['response'].append(self._on_response_received)
 
         # Cookie が指定されている場合は、それをセッションにセット (再ログインを省略する)
         if cookies is not None:
@@ -188,6 +182,10 @@ class CookieSessionUserHandler(AuthBase):
             cookie_header += f'{key}={value}; '
         request.headers['cookie'] = cookie_header
 
+        # API からレスポンスが返ってきた際に自動で CSRF トークンを更新する
+        ## やらなくても大丈夫かもしれないけど、念のため
+        request.hooks['response'].append(self._on_response_received)
+
         # 認証情報を追加した PreparedRequest オブジェクトを返す
         return request
 
@@ -216,6 +214,23 @@ class CookieSessionUserHandler(AuthBase):
             str: RequestsCookieJar
         """
         return self._session.cookies
+
+
+    def _on_response_received(self, response: requests.Response, *args, **kwargs) -> None:
+        """
+        レスポンスが返ってきた際に自動的に CSRF トークンを更新するコールバック
+
+        Args:
+            response (requests.Response): レスポンス
+        """
+
+        csrf_token = response.cookies.get('ct0')
+        if csrf_token:
+            if self._session.cookies.get('ct0') != csrf_token:
+                self._session.cookies.set('ct0', csrf_token, domain='.twitter.com')
+            self._auth_flow_api_headers['x-csrf-token'] = csrf_token
+            self._tweetdeck_api_headers['x-csrf-token'] = csrf_token
+            self._session.headers['x-csrf-token'] = csrf_token
 
 
     def _get_tweepy_exception(self, response: requests.Response) -> tweepy.TweepyException:
