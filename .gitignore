@@ -172,4 +172,5 @@ poetry.toml
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 
-*.pickle
+cookie.json
+cookie.pickle
