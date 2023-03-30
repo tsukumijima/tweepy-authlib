@@ -70,10 +70,16 @@ pip install tweepy-authlib
 
 ```python
 import json
+import os
 import tweepy
 from pathlib import Path
 from requests.cookies import RequestsCookieJar
 from tweepy_authlib import CookieSessionUserHandler
+
+try:
+    terminal_size = os.get_terminal_size().columns
+except OSError:
+    terminal_size = 80
 
 # 保存した Cookie を使って認証
 ## 毎回ログインすると不審なログインとして扱われる可能性が高くなるため、
@@ -118,10 +124,16 @@ print('-' * terminal_size)
 ### With Pickle
 
 ```python
+import os
 import pickle
 import tweepy
 from pathlib import Path
 from tweepy_authlib import CookieSessionUserHandler
+
+try:
+    terminal_size = os.get_terminal_size().columns
+except OSError:
+    terminal_size = 80
 
 # 保存した Cookie を使って認証
 ## 毎回ログインすると不審なログインとして扱われる可能性が高くなるため、
