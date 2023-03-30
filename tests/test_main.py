@@ -5,7 +5,6 @@ import os
 import pickle
 import pytest
 import tweepy
-from tweepy.errors import BadRequest
 from tweepy_authlib import CookieSessionUserHandler
 
 
@@ -27,11 +26,11 @@ def test_03():
         CookieSessionUserHandler(screen_name='elonmusk', password='')
 
 def test_04():
-    with pytest.raises(BadRequest, match=r'.*399 - アカウントが見つかりません。.*'):
+    with pytest.raises(tweepy.BadRequest, match=r'.*399 - アカウントが見つかりません。.*'):
         CookieSessionUserHandler(screen_name='not__found__user', password='password')
 
 def test_05():
-    with pytest.raises(BadRequest, match=r'.*399 - パスワードが正しくありません。.*'):
+    with pytest.raises(tweepy.BadRequest, match=r'.*399 - パスワードが正しくありません。.*'):
         CookieSessionUserHandler(screen_name='elonmusk', password='password')
 
 def test_06():

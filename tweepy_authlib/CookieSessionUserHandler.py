@@ -40,6 +40,13 @@ class CookieSessionUserHandler(AuthBase):
             cookies (Optional[RequestsCookieJar], optional): リクエスト時に利用する Cookie. Defaults to None.
             screen_name (Optional[str], optional): Twitter のスクリーンネーム (@は含まない). Defaults to None.
             password (Optional[str], optional): Twitter のパスワード. Defaults to None.
+
+        Raises:
+            ValueError: Cookie が指定されていないのに、スクリーンネームまたはパスワードが (もしくはどちらも) 指定されていない
+            ValueError: スクリーンネームが空文字列
+            ValueError: パスワードが空文字列
+            tweepy.BadRequest: スクリーンネームまたはパスワードが間違っている
+            tweepy.TweepyException: 認証フローの途中でエラーが発生し、ログインに失敗した
         """
 
         self.screen_name = screen_name
@@ -144,6 +151,11 @@ class CookieSessionUserHandler(AuthBase):
         # Cookie が指定されていない場合は、ログインを試みる
         else:
             self._login()
+
+        # Cookie から auth_token または ct0 が取得できなかった場合
+        ## auth_token と ct0 はいずれも認証に最低限必要な Cookie のため、取得できなかった場合は認証に失敗したものとみなす
+        if self._session.cookies.get('auth_token', default=None) is None or self._session.cookies.get('ct0', default=None) is None:
+            raise tweepy.TweepyException('Failed to get auth_token or ct0 from Cookie')
 
         # Cookie の "gt" 値 (ゲストトークン) を認証フロー API 用ヘッダーにセット
         guest_token = self._session.cookies.get('gt')
@@ -382,6 +394,13 @@ class CookieSessionUserHandler(AuthBase):
 
 
     def _login(self) -> None:
+        """
+        スクリーンネームとパスワードを使って認証し、ログインする
+
+        Raises:
+            tweepy.BadRequest: スクリーンネームまたはパスワードが間違っている
+            tweepy.TweepyException: 認証フローの途中でエラーが発生し、ログインに失敗した
+        """
 
         def get_flow_token(response: requests.Response) -> str:
             try:
