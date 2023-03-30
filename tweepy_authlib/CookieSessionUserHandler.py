@@ -273,21 +273,30 @@ class CookieSessionUserHandler(AuthBase):
         return binascii.hexlify(data).decode()
 
 
-    def _get_guest_token(self, html: str)  -> str:
+    def _get_guest_token(self) -> str:
         """
-        Twitter の HTML からゲストトークン (Cookie 内の "gt" 値) を取得する
-        すでに Cookie 内の "gt0" 値がセットされた状態で HTML を取得するとゲストトークンが HTML に埋め込まれないため注意
+        ゲストトークン (Cookie 内の "gt" 値) を取得する
 
         Returns:
             str: 取得されたトークン
         """
 
-        # document.cookie = decodeURIComponent("gt=0000000000000000000; Max-Age=10800; Domain=.twitter.com; Path=/; Secure");
-        # のようなフォーマットで HTML に埋め込まれているので、正規表現で抽出する
-        match = re.search(re.compile(r'document.cookie = decodeURIComponent\("gt=(\d+); Max-Age='), html)
-        if match is None:
+        # HTTP ヘッダーは基本的に認証用セッションのものを使う
+        headers = self._auth_flow_api_headers.copy()
+        headers.pop('x-csrf-token')
+        headers.pop('x-guest-token')
+
+        # API からゲストトークンを取得する
+        # ref: https://github.com/fa0311/TwitterFrontendFlow/blob/master/TwitterFrontendFlow/TwitterFrontendFlow.py#L26-L36
+        guest_token_response = self._session.post('https://api.twitter.com/1.1/guest/activate.json', headers=headers)
+        if guest_token_response.status_code != 200:
+            raise self._get_tweepy_exception(guest_token_response)
+        try:
+            guest_token = guest_token_response.json()['guest_token']
+        except:
             raise tweepy.TweepyException('Failed to get guest token')
-        return match.group(1)
+
+        return guest_token
 
 
     def _get_ui_metrics(self, js_inst: str) -> Dict[str, Any]:
@@ -399,11 +408,13 @@ class CookieSessionUserHandler(AuthBase):
         self._session.cookies.set('ct0', csrf_token, domain='.twitter.com')
         self._auth_flow_api_headers['x-csrf-token'] = csrf_token
 
-        # ゲストトークンを取得し、"gt" としてセッションの Cookie に保存
-        ## 同時に認証フロー API 用の HTTP リクエストヘッダーにもセット ("gt" と "x-guest-token" は同じ値になる)
-        guest_token = self._get_guest_token(html_response.text)
-        self._session.cookies.set('gt', guest_token, domain='.twitter.com')
-        self._auth_flow_api_headers['x-guest-token'] = guest_token
+        # まだ取得できていない場合のみ、ゲストトークンを取得し、"gt" としてセッションの Cookie に保存
+        if self._session.cookies.get('gt', default=None) is None:
+            guest_token = self._get_guest_token()
+            self._session.cookies.set('gt', guest_token, domain='.twitter.com')
+
+        ## ゲストトークンを認証フロー API 用の HTTP リクエストヘッダーにもセット ("gt" と "x-guest-token" は同じ値になる)
+        self._auth_flow_api_headers['x-guest-token'] = self._session.cookies.get('gt')
 
         # これ以降は基本認証フロー API へのアクセスしか行わないので、セッションのヘッダーを認証フロー API 用のものに差し替える
         self._session.headers.clear()
@@ -476,7 +487,7 @@ class CookieSessionUserHandler(AuthBase):
         self._session.post('https://api.twitter.com/1.1/branch/init.json', json={})
 
         # js_inst (難読化された JavaScript で、これの実行結果を認証フローに送信する必要があるらしい) を取得
-        js_inst_response = self._session.get('https://twitter.com/i/js_inst?c_name=ui_metrics')
+        js_inst_response = self._session.get('https://twitter.com/i/js_inst?c_name=ui_metrics', headers=self._js_headers)
         if js_inst_response.status_code != 200:
             raise tweepy.TweepyException('Failed to get js_inst')
 
