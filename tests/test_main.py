@@ -76,6 +76,7 @@ def test_07(tweet: bool = False):
         assert user.screen_name == os.environ['TWITTER_SCREEN_NAME']
         assert api.user_timeline(screen_name='elonmusk')[0].user.screen_name == 'elonmusk'
         api.home_timeline()
+        auth_handler.logout()
     else:
         pytest.skip('TWITTER_SCREEN_NAME or TWITTER_PASSWORD is not set.')
 

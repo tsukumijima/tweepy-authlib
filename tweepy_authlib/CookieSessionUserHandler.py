@@ -46,6 +46,7 @@ class CookieSessionUserHandler(AuthBase):
             ValueError: スクリーンネームが空文字列
             ValueError: パスワードが空文字列
             tweepy.BadRequest: スクリーンネームまたはパスワードが間違っている
+            tweepy.HTTPException: サーバーエラーなどの問題でログインに失敗した
             tweepy.TweepyException: 認証フローの途中でエラーが発生し、ログインに失敗した
         """
 
@@ -228,6 +229,43 @@ class CookieSessionUserHandler(AuthBase):
         return self._session.cookies
 
 
+    def logout(self) -> None:
+        """
+        ログアウト処理を行い、Twitter からセッションを切断する
+        単に Cookie を削除するだけだと Twitter にセッションが残り続けてしまうため、今後ログインしない場合は明示的にこのメソッドを呼び出すこと
+        このメソッドを呼び出した後は、取得した Cookie では再認証できなくなる
+
+        Raises:
+            tweepy.HTTPException: サーバーエラーなどの問題でログアウトに失敗した
+            tweepy.TweepyException: ログアウト処理中にエラーが発生した
+        """
+
+        # ログアウト API 専用ヘッダー
+        ## self._auth_flow_api_headers と基本的には共通なため、コピーして変更箇所のみ変更する
+        logout_headers = self._auth_flow_api_headers.copy()
+        logout_headers['content-type'] = 'application/x-www-form-urlencoded'
+        del logout_headers['x-guest-token']
+        logout_headers['x-twitter-auth-type'] = 'OAuth2Session'
+        ## ヘッダーの dict をアルファベット順にソート
+        logout_headers = dict(sorted(logout_headers.items(), key=lambda x: x[0]))
+
+        # ログアウト API にログアウトすることを伝える
+        ## この API を実行すると、サーバー側でセッションが切断され、今まで持っていたほとんどの Cookie が消去される
+        logout_api_response = self._session.post('https://api.twitter.com/1.1/account/logout.json', headers=logout_headers, data={
+            'redirectAfterLogout': 'https://twitter.com/account/switch',
+        })
+        if logout_api_response.status_code != 200:
+            raise self._get_tweepy_exception(logout_api_response)
+
+        # 基本固定値のようなので不要だが、念のためステータスチェック
+        try:
+            status = logout_api_response.json()['status']
+        except:
+            raise tweepy.TweepyException('Failed to logout (failed to parse response)')
+        if status != 'ok':
+            raise tweepy.TweepyException(f'Failed to logout (status: {status})')
+
+
     def _on_response_received(self, response: requests.Response, *args, **kwargs) -> None:
         """
         レスポンスが返ってきた際に自動的に CSRF トークンを更新するコールバック
@@ -399,6 +437,7 @@ class CookieSessionUserHandler(AuthBase):
 
         Raises:
             tweepy.BadRequest: スクリーンネームまたはパスワードが間違っている
+            tweepy.HTTPException: サーバーエラーなどの問題でログインに失敗した
             tweepy.TweepyException: 認証フローの途中でエラーが発生し、ログインに失敗した
         """
 
