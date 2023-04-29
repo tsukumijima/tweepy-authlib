@@ -37,8 +37,20 @@ if Path('cookie.json').exists():
 else:
 
     # スクリーンネームとパスワードを渡す
-    ## スクリーンネームまたはパスワードが間違っている場合は、tweepy.BadRequest がスローされる
-    auth_handler = CookieSessionUserHandler(screen_name=screen_name, password=password)
+    ## スクリーンネームとパスワードを指定する場合は初期化時に認証のための API リクエストが多数行われるため、完了まで数秒かかる
+    try:
+        auth_handler = CookieSessionUserHandler(screen_name=screen_name, password=password)
+    except tweepy.HTTPException as ex:
+        # パスワードが間違っているなどの理由で認証に失敗した場合
+        if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
+            error_message = f'Code: {ex.api_codes[0]}, Message: {ex.api_messages[0]}'
+        else:
+            error_message = 'Unknown Error'
+        raise Exception(f'Failed to authenticate with password ({error_message})')
+    except tweepy.TweepyException as ex:
+        # 認証フローの途中で予期せぬエラーが発生し、ログインに失敗した
+        error_message = f'Message: {ex}'
+        raise Exception(f'Unexpected error occurred while authenticate with password ({error_message})')
 
     # 現在のログインセッションの Cookie を取得
     cookies = auth_handler.get_cookies()
@@ -54,3 +66,9 @@ print(api.verify_credentials())
 print('-' * terminal_size)
 print(api.home_timeline())
 print('-' * terminal_size)
+
+# 継続してログインしない場合は明示的にログアウト
+## 単に Cookie を消去するだけだと Twitter にセッションが残り続けてしまう
+## ログアウト後は、取得した Cookie では再認証できなくなる
+#auth_handler.logout()
+#os.unlink('cookie.json')
