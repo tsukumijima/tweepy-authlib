@@ -119,7 +119,10 @@ class CookieSessionUserHandler(AuthBase):
             'accept': 'text/plain, */*; q=0.01',
             'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'ja',
-            'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAAF7aAAAAAAAASCiRjWvh7R5wxaKkFp7MM%2BhYBqM%3DbQ0JPmjU9F6ZoMhDfI4uTNAaQuTDm2uO9x3WFVr2xBZ2nhjdP0',
+            # 旧 TweetDeck の Bearer トークンが無効化されたため、代わりに Twitter Web App の Bearer トークンを使う
+            # API v1.1 自体が徐々に廃止されているが、代替 API が用意されていない upload.twitter.com あたりはこれでまだ行けるはず
+            # 'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAAF7aAAAAAAAASCiRjWvh7R5wxaKkFp7MM%2BhYBqM%3DbQ0JPmjU9F6ZoMhDfI4uTNAaQuTDm2uO9x3WFVr2xBZ2nhjdP0',
+            'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
             'cache-control': 'no-cache',
             'origin': 'https://tweetdeck.twitter.com',
             'pragma': 'no-cache',
@@ -132,8 +135,10 @@ class CookieSessionUserHandler(AuthBase):
             'sec-fetch-site': 'same-site',
             'user-agent': self.user_agent,
             'x-csrf-token': None,  # ここは後でセットする
+            'x-twitter-active-user': 'yes',  # Twitter Web App API 固有のヘッダー (念のため)
             'x-twitter-auth-type': 'OAuth2Session',
-            'x-twitter-client-version': 'Twitter-TweetDeck-blackbird-chrome/4.0.220811153004 web/',
+            'x-twitter-client-language': 'ja',  # Twitter Web App API 固有のヘッダー (念のため)
+            'x-twitter-client-version': 'Twitter-TweetDeck-blackbird-chrome/4.0.220811153004 web/',  # 旧 TweetDeck API 固有のヘッダー
         }
 
         # Cookie ログイン用のセッションを作成
