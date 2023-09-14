@@ -4,6 +4,13 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/tweepy-authlib.svg)](https://pypi.org/project/tweepy-authlib)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/tweepy-authlib.svg)](https://pypi.org/project/tweepy-authlib)
 
+> **Warning**  
+> **旧 TweetDeck の完全廃止にともない、09/14 頃から内部的に残存していた Twitter API v1.1 の段階的なシャットダウンが開始されてしまいました。**  
+> このため、**v1.1.0 以前の TweetDeck の Bearer トークンを使い API v1.1 にアクセスする実装が動作しなくなっています。**  
+> **これに伴い、Bearer トークンに代わりに Twitter Web App の Bearer トークンを利用するように変更した、v1.2.0 をリリースしました。**  
+> statuses/update を含めた主にツイート系の API v1.1 にすでにアクセスできない状態で、今後も段階的にアクセスできなくなる API が増えていくと思われます。  
+> 09/14 時点では home_timeline や verify_credentials などの一部 API には今まで通りの方法で tweepy と tweepy-authlib を使いアクセスできますが、今後はそれらの API にもアクセスできなくなる可能性があります。
+
 -----
 
 **Table of Contents**
