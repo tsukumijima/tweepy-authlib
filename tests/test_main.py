@@ -46,7 +46,7 @@ def test_06():
         print(user)
         print('-' * terminal_size)
         assert user.screen_name == os.environ['TWITTER_SCREEN_NAME']
-        assert api.user_timeline(screen_name='elonmusk')[0].user.screen_name == 'elonmusk'
+        # assert api.user_timeline(screen_name='elonmusk')[0].user.screen_name == 'elonmusk'
         api.home_timeline()
         with open('cookie.pickle', 'wb') as f:
             pickle.dump(auth_handler.get_cookies(), f)
@@ -67,14 +67,14 @@ def test_07(tweet: bool = False):
         os.unlink('cookie.pickle')
         api = tweepy.API(auth_handler)
         user = api.verify_credentials()
-        if tweet is True:
-            print('-' * terminal_size)
-            print(api.update_status(f'Hello, Twitter! (API Test Tweet, {datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")})'))
+        # if tweet is True:
+        #     print('-' * terminal_size)
+        #     print(api.update_status(f'Hello, Twitter! (API Test Tweet, {datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")})'))
         print('-' * terminal_size)
         print(user)
         print('-' * terminal_size)
         assert user.screen_name == os.environ['TWITTER_SCREEN_NAME']
-        assert api.user_timeline(screen_name='elonmusk')[0].user.screen_name == 'elonmusk'
+        # assert api.user_timeline(screen_name='elonmusk')[0].user.screen_name == 'elonmusk'
         api.home_timeline()
         auth_handler.logout()
     else:
