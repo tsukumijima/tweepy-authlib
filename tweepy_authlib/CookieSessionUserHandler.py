@@ -229,6 +229,17 @@ class CookieSessionUserHandler(AuthBase):
         return self._session.cookies
 
 
+    def get_cookies_as_dict(self) -> Dict[str, str]:
+        """
+        現在のログインセッションの Cookie を dict として取得する
+        返される dict を保存しておくことで、再ログインせずにセッションを継続できる
+
+        Returns:
+            Dict[str, str]: Cookie
+        """
+        return self._session.cookies.get_dict()
+
+
     def logout(self) -> None:
         """
         ログアウト処理を行い、Twitter からセッションを切断する
