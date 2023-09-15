@@ -27,8 +27,8 @@ class CookieSessionUserHandler(AuthBase):
     ref: https://github.com/fa0311/TwitterFrontendFlow/blob/master/TwitterFrontendFlow/TwitterFrontendFlow.py
     """
 
-    user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36';
-    sec_ch_ua = '"Google Chrome";v="111", "Not(A:Brand";v="8", "Chromium";v="111"';
+    user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
+    sec_ch_ua = '"Chromium";v="116", "Not)A;Brand";v="24", "Google Chrome";v="116"'
 
 
     def __init__(self, cookies: Optional[RequestsCookieJar] = None, screen_name: Optional[str] = None, password: Optional[str] = None) -> None:
@@ -114,19 +114,19 @@ class CookieSessionUserHandler(AuthBase):
             'x-twitter-client-language': 'ja',
         }
 
-        # TweetDeck API (Twitter API v1.1) アクセス時の HTTP リクエストヘッダー
+        # 旧 TweetDeck API (Twitter API v1.1) アクセス時の HTTP リクエストヘッダー
         self._tweetdeck_api_headers = {
             'accept': 'text/plain, */*; q=0.01',
             'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'ja',
             # 旧 TweetDeck の Bearer トークンが無効化されたため、代わりに Twitter Web App の Bearer トークンを使う
-            # API v1.1 自体が徐々に廃止されているが、代替 API が用意されていない upload.twitter.com あたりはこれでまだ行けるはず
             # 'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAAF7aAAAAAAAASCiRjWvh7R5wxaKkFp7MM%2BhYBqM%3DbQ0JPmjU9F6ZoMhDfI4uTNAaQuTDm2uO9x3WFVr2xBZ2nhjdP0',
             'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
             'cache-control': 'no-cache',
-            'origin': 'https://tweetdeck.twitter.com',
+            # 旧 TweetDeck 自体は廃止されているので、origin と referer は Twitter Web App からのアクセスという体にしている
+            'origin': 'https:/twitter.com',
             'pragma': 'no-cache',
-            'referer': 'https://tweetdeck.twitter.com/',
+            'referer': 'https://twitter.com/',
             'sec-ch-ua': self.sec_ch_ua,
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
@@ -135,10 +135,31 @@ class CookieSessionUserHandler(AuthBase):
             'sec-fetch-site': 'same-site',
             'user-agent': self.user_agent,
             'x-csrf-token': None,  # ここは後でセットする
-            'x-twitter-active-user': 'yes',  # Twitter Web App API 固有のヘッダー (念のため)
             'x-twitter-auth-type': 'OAuth2Session',
-            'x-twitter-client-language': 'ja',  # Twitter Web App API 固有のヘッダー (念のため)
-            'x-twitter-client-version': 'Twitter-TweetDeck-blackbird-chrome/4.0.220811153004 web/',  # 旧 TweetDeck API 固有のヘッダー
+            'x-twitter-client-version': 'Twitter-TweetDeck-blackbird-chrome/4.0.220811153004 web/',
+        }
+
+        # GraphQL API (Twitter Web App API) アクセス時の HTTP リクエストヘッダー
+        ## tweepy-authlib 内部では使われておらず、ユーザーの便宜のために用意しているもの
+        ## GraphQL API は https://twitter.com/i/api/graphql/ 配下にあり同一ドメインのため、origin と referer は意図的に省略している
+        self._graphql_api_headers = {
+            'accept': 'text/plain, */*; q=0.01',
+            'accept-encoding': 'gzip, deflate, br',
+            'accept-language': 'ja',
+            'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+            'cache-control': 'no-cache',
+            'pragma': 'no-cache',
+            'sec-ch-ua': self.sec_ch_ua,
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-site',
+            'user-agent': self.user_agent,
+            'x-csrf-token': None,  # ここは後でセットする
+            'x-twitter-active-user': 'yes',
+            'x-twitter-auth-type': 'OAuth2Session',
+            'x-twitter-client-language': 'ja',
         }
 
         # Cookie ログイン用のセッションを作成
@@ -173,6 +194,7 @@ class CookieSessionUserHandler(AuthBase):
         if csrf_token:
             self._auth_flow_api_headers['x-csrf-token'] = csrf_token
             self._tweetdeck_api_headers['x-csrf-token'] = csrf_token
+            self._graphql_api_headers['x-csrf-token'] = csrf_token
 
         # これ以降は基本 TweetDeck API へのアクセスしか行わないので、セッションのヘッダーを TweetDeck API 用のものに差し替える
         self._session.headers.clear()
@@ -231,6 +253,7 @@ class CookieSessionUserHandler(AuthBase):
         Returns:
             str: RequestsCookieJar
         """
+
         return self._session.cookies
 
 
@@ -242,7 +265,34 @@ class CookieSessionUserHandler(AuthBase):
         Returns:
             Dict[str, str]: Cookie
         """
+
         return self._session.cookies.get_dict()
+
+
+    def get_tweetdeck_api_headers(self) -> Dict[str, str]:
+        """
+        旧 TweetDeck API (Twitter API v1.1) アクセス用の HTTP リクエストヘッダーを取得する
+        このリクエストヘッダーを使い独自に API リクエストを行う際は、
+        必ず x-csrf-token ヘッダーの値を常に Cookie 内の "ct0" と一致させるように実装しなければならない
+
+        Returns:
+            Dict[str, str]: 旧 TweetDeck API (Twitter API v1.1) アクセス用の HTTP リクエストヘッダー
+        """
+
+        return self._tweetdeck_api_headers
+
+
+    def get_graphql_api_headers(self) -> Dict[str, str]:
+        """
+        GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダーを取得する
+        このリクエストヘッダーを使い独自に API リクエストを行う際は、
+        必ず x-csrf-token ヘッダーの値を常に Cookie 内の "ct0" と一致させるように実装しなければならない
+
+        Returns:
+            Dict[str, str]: GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダー
+        """
+
+        return self._graphql_api_headers
 
 
     def logout(self) -> None:
@@ -296,6 +346,7 @@ class CookieSessionUserHandler(AuthBase):
                 self._session.cookies.set('ct0', csrf_token, domain='.twitter.com')
             self._auth_flow_api_headers['x-csrf-token'] = csrf_token
             self._tweetdeck_api_headers['x-csrf-token'] = csrf_token
+            self._graphql_api_headers['x-csrf-token'] = csrf_token
             self._session.headers['x-csrf-token'] = csrf_token
 
 
@@ -309,6 +360,7 @@ class CookieSessionUserHandler(AuthBase):
         Returns:
             tweepy.TweepyException: 例外
         """
+
         if response.status_code == 400:
             return tweepy.BadRequest(response)
         elif response.status_code == 401:
@@ -335,6 +387,7 @@ class CookieSessionUserHandler(AuthBase):
         Returns:
             str: 生成されたトークン
         """
+
         data = random.getrandbits(size * 8).to_bytes(size, "big")
         return binascii.hexlify(data).decode()
 
