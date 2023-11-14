@@ -4,7 +4,7 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/tweepy-authlib.svg)](https://pypi.org/project/tweepy-authlib)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/tweepy-authlib.svg)](https://pypi.org/project/tweepy-authlib)
 
-> **Warning**  
+> [!WARNING]  
 > **旧 TweetDeck の完全廃止にともない、09/14 頃から内部的に残存していた Twitter API v1.1 の段階的なシャットダウンが開始されてしまいました。**  
 > このため、**v1.1.0 以前の TweetDeck の Bearer トークンを使い API v1.1 にアクセスする実装が動作しなくなっています。**  
 > **これに伴い、Bearer トークンに代わりに Twitter Web App の Bearer トークンを利用するように変更した、v1.2.0 をリリースしました。**  
@@ -35,7 +35,7 @@ Tweepy を利用しているソースコードのうち、認証部分 (`tweepy.
 Twitter API の有料化に伴って通常の OAuth API が利用できなくなった場合も、この `CookieSessionUserHandler` を使えば引き続き Twitter API v1.1 にアクセスできるはず…！  
 認証部分以外は OAuth API のときの実装がそのまま使えるので、ソースコードの変更も最小限に抑えられます。
 
-> **Note**  
+> [!NOTE]  
 > OAuth API と公式クライアント用の内部 API がほぼ共通だった v1.1 とは異なり、v2 では OAuth API と公式クライアント用の内部 API が大きく異なります。  
 > そのため、`CookieSessionUserHandler` は Twitter API v2 には対応していません。  
 > また、今のところ2段階認証にも対応していません (2段階認証に関しては技術的には実装可能だが、確認コードの送信周りの実装が面倒…) 。
@@ -43,23 +43,23 @@ Twitter API の有料化に伴って通常の OAuth API が利用できなくな
 認証フローはブラウザ上で動作する Web 版公式クライアントの API アクセス動作や HTTP リクエストヘッダーを可能な限りエミュレートしています。  
 ブラウザから抽出した Web 版公式クライアントのログイン済み Cookie を使うことでも認証が可能です。
 
-> **Note**  
+> [!NOTE]  
 > ブラウザから Cookie を抽出する場合、(不審なアクセス扱いされないために) できればすべての Cookie を抽出することが望ましいですが、実装上は Cookie 内の `auth_token` と `ct0` の2つの値だけあれば認証できます。  
 > なお、ブラウザから取得した Cookie は事前に `requests.cookies.RequestsCookieJar` に変換してください。
 
 さらに API アクセス時は TweetDeck の HTTP リクエスト (Twitter API v1.1) をエミュレートしているため、レートリミットなどの制限は TweetDeck と同一です。  
 
-> **Note**  
+> [!NOTE]  
 > `CookieSessionUserHandler` で取得した認証情報を使うと、TweetDeck でしか利用できない search/universal などの内部 API にもアクセスできるようになります。  
 > ただし、Tweepy はそうした内部 API をサポートしていないため、アクセスするには独自に `tweepy.API.request()` で HTTP リクエストを送る必要があります。
 
-> **Warning**  
+> [!WARNING]  
 > このライブラリは、非公式かつ内部的な API をリバースエンジニアリングし、ブラウザとほぼ同じように API アクセスを行うことで、本来 Web 版公式クライアントでしか利用できない Cookie 認証での Twitter API v1.1 へのアクセスを可能にしています。  
 > 可能な限りブラウザの挙動を模倣することでできるだけ Twitter 側に怪しまれないような実装を行っていますが、非公式な方法ゆえ、**このライブラリを利用して Twitter API にアクセスすると、最悪アカウント凍結やシャドウバンなどの制限が適用される可能性もあります。**  
 > また、**Twitter API の仕様変更により、このライブラリが突然動作しなくなることも考えられます。**  
 > このライブラリを利用して API アクセスを行うことによって生じたいかなる損害についても、著者は一切の責任を負いません。利用にあたっては十分ご注意ください。
 
-> **Warning**  
+> [!WARNING]  
 > **スクリーンネームとパスワードを指定して認証する際は、できるだけログイン実績のある IP アドレスでの実行をおすすめします。**  
 > このライブラリでの認証は、Web 版公式クライアントのログインと同じように行われるため、ログイン実績のない IP アドレスから認証すると、不審なログインとして扱われてしまう可能性があります。  
 > また、実行毎に毎回認証を行うと、不審なログインとして扱われてしまう可能性が高くなります。  
