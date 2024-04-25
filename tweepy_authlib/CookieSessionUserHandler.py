@@ -548,9 +548,7 @@ class CookieSessionUserHandler(AuthBase):
         self._session.headers.update(self._auth_flow_api_headers)
 
         # 極力公式の Twitter Web App に偽装するためのダミーリクエスト
-        ## https://api.twitter.com/1.1/attribution/event.json に関してはもしかすると意味があるかも
-        self._session.get('https://api.twitter.com/1.1/hashflags.json',)
-        self._session.post('https://api.twitter.com/1.1/attribution/event.json', json={'event': 'open'})
+        self._session.get('https://api.twitter.com/1.1/hashflags.json')
 
         # https://api.twitter.com/1.1/onboarding/task.json?task=login に POST して認証フローを開始
         ## 認証フローを開始するには、Cookie に "ct0" と "gt" がセットされている必要がある
