@@ -6,7 +6,8 @@
 
 > [!WARNING]  
 > **旧 TweetDeck の完全廃止にともない、2023/09/14 頃から内部的に残存していた Twitter API v1.1 の段階的なシャットダウンが開始されています。**  
-> **2024/04/30 時点では、下記 API が既に廃止されています ([参考](https://github.com/dimdenGD/OldTweetDeck/blob/main/src/interception.js)) 。リストにない API も既に廃止されている可能性があります。**
+> **2024/04/30 時点では、下記 API が既に廃止されています ([参考](https://github.com/dimdenGD/OldTweetDeck/blob/main/src/interception.js)) 。**  
+> 現時点では 2023/09 にサーバー負荷が高い API が一括廃止されて以降の動きはありません。ただし、リストにない API も既に廃止されている可能性があります。
 > - `search/tweets` : ツイート検索
 > - `search/universal` : ツイート検索 (旧 TweetDeck 独自 API)
 > - `statuses/update` : ツイート投稿
@@ -16,9 +17,10 @@
 > - `statuses/destroy/:id` : ツイート削除
 > - `statuses/user_timeline` : ユーザータイムライン
 > - `users/search` : ユーザー検索
-> 
+>
 > **現在 tweepy-authlib を利用して上記機能を実装するには、別途 GraphQL API (Twitter Web App の内部 API) クライアントを自作する必要があります。**  
-> 私が [KonomiTV](https://github.com/tsukumijima/KonomiTV) 向けに開発した GraphQL API クライアントの実装が [こちら](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/utils/TwitterGraphQLAPI.py) ([使用例](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/routers/TwitterRouter.py)) にありますので、実装時の参考にしてください。
+> 私が [KonomiTV](https://github.com/tsukumijima/KonomiTV) 向けに開発した GraphQL API クライアントの実装が [こちら](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/utils/TwitterGraphQLAPI.py) ([使用例](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/routers/TwitterRouter.py)) にありますので、参考になれば幸いです。  
+> また現時点で廃止されていない API を利用したサンプルコードが [example_json.py](example_json.py) と [example_pickle.py](example_pickle.py) にありますので、そちらもご一読ください。
 
 > [!IMPORTANT]  
 > 2024/04/30 時点では [tweepy-authlib が依存する js2py が Python 3.12 に対応していない](https://github.com/tsukumijima/tweepy-authlib/issues/5) ため、tweepy-authlib は Python 3.12 以降では動作しません。  
@@ -86,11 +88,15 @@ pip install tweepy-authlib
 
 ### With JSON
 
+[example_json.py](example_json.py)
+
 ```python
-import json
+import dotenv
 import os
+import json
 import tweepy
 from pathlib import Path
+from pprint import pprint
 from requests.cookies import RequestsCookieJar
 from tweepy_authlib import CookieSessionUserHandler
 
@@ -98,6 +104,11 @@ try:
     terminal_size = os.get_terminal_size().columns
 except OSError:
     terminal_size = 80
+
+# ユーザー名とパスワードを環境変数から取得
+dotenv.load_dotenv()
+screen_name = os.environ.get('TWITTER_SCREEN_NAME', 'your_screen_name')
+password = os.environ.get('TWITTER_PASSWORD', 'your_password')
 
 # 保存した Cookie を使って認証
 ## 毎回ログインすると不審なログインとして扱われる可能性が高くなるため、
@@ -122,7 +133,7 @@ else:
     # スクリーンネームとパスワードを渡す
     ## スクリーンネームとパスワードを指定する場合は初期化時に認証のための API リクエストが多数行われるため、完了まで数秒かかる
     try:
-        auth_handler = CookieSessionUserHandler(screen_name='your_screen_name', password='your_password')
+        auth_handler = CookieSessionUserHandler(screen_name=screen_name, password=password)
     except tweepy.HTTPException as ex:
         # パスワードが間違っているなどの理由で認証に失敗した場合
         if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
@@ -136,38 +147,79 @@ else:
         raise Exception(f'Unexpected error occurred while authenticate with password ({error_message})')
 
     # 現在のログインセッションの Cookie を取得
-    cookies = auth_handler.get_cookies()
+    cookies_dict = auth_handler.get_cookies_as_dict()
 
-    # Cookie を pickle 化して保存
+    # Cookie を JSON ファイルに保存
     with open('cookie.json', 'w') as f:
-        json.dump(cookies.get_dict(), f, ensure_ascii=False, indent=4)
+        json.dump(cookies_dict, f, ensure_ascii=False, indent=4)
 
 # Tweepy で Twitter API v1.1 にアクセス
 api = tweepy.API(auth_handler)
+
+print('=' * terminal_size)
 print('-' * terminal_size)
-print(api.verify_credentials())
+print('Logged in as:')
 print('-' * terminal_size)
+user = api.verify_credentials()
+pprint(user._json)
+print('=' * terminal_size)
+
+print('-' * terminal_size)
+print('Followers (3 users):')
+print('-' * terminal_size)
+followers = user.followers(count=3)
+for follower in followers:
+    pprint(follower._json)
+    print('-' * terminal_size)
+print('=' * terminal_size)
+
+print('-' * terminal_size)
+print('Following (3 users):')
+print('-' * terminal_size)
+friends = user.friends(count=3)
+for friend in friends:
+    pprint(friend._json)
+    print('-' * terminal_size)
+print('=' * terminal_size)
+
+print('-' * terminal_size)
+print('Home timeline (3 tweets):')
+print('-' * terminal_size)
+home_timeline = api.home_timeline(count=3)
+for status in home_timeline:
+    pprint(status._json)
+    print('-' * terminal_size)
+print('=' * terminal_size)
 
 # 継続してログインしない場合は明示的にログアウト
 ## 単に Cookie を消去するだけだと Twitter にセッションが残り続けてしまう
-## ログアウト後は、取得した Cookie では再認証できなくなる
-#auth_handler.logout()
-#os.unlink('cookie.json')
+## ログアウト後は、取得した Cookie は再利用できなくなる
+auth_handler.logout()
+os.unlink('cookie.json')
 ```
 
 ### With Pickle
 
+[example_pickle.py](example_pickle.py)
+
 ```python
+import dotenv
 import os
 import pickle
 import tweepy
 from pathlib import Path
+from pprint import pprint
 from tweepy_authlib import CookieSessionUserHandler
 
 try:
     terminal_size = os.get_terminal_size().columns
 except OSError:
     terminal_size = 80
+
+# ユーザー名とパスワードを環境変数から取得
+dotenv.load_dotenv()
+screen_name = os.environ.get('TWITTER_SCREEN_NAME', 'your_screen_name')
+password = os.environ.get('TWITTER_PASSWORD', 'your_password')
 
 # 保存した Cookie を使って認証
 ## 毎回ログインすると不審なログインとして扱われる可能性が高くなるため、
@@ -187,7 +239,7 @@ else:
     # スクリーンネームとパスワードを渡す
     ## スクリーンネームとパスワードを指定する場合は初期化時に認証のための API リクエストが多数行われるため、完了まで数秒かかる
     try:
-        auth_handler = CookieSessionUserHandler(screen_name='your_screen_name', password='your_password')
+        auth_handler = CookieSessionUserHandler(screen_name=screen_name, password=password)
     except tweepy.HTTPException as ex:
         # パスワードが間違っているなどの理由で認証に失敗した場合
         if len(ex.api_codes) > 0 and len(ex.api_messages) > 0:
@@ -209,15 +261,47 @@ else:
 
 # Tweepy で Twitter API v1.1 にアクセス
 api = tweepy.API(auth_handler)
+
+print('=' * terminal_size)
 print('-' * terminal_size)
-print(api.verify_credentials())
+print('Logged in as:')
 print('-' * terminal_size)
+user = api.verify_credentials()
+pprint(user._json)
+print('=' * terminal_size)
+
+print('-' * terminal_size)
+print('Followers (3 users):')
+print('-' * terminal_size)
+followers = user.followers(count=3)
+for follower in followers:
+    pprint(follower._json)
+    print('-' * terminal_size)
+print('=' * terminal_size)
+
+print('-' * terminal_size)
+print('Following (3 users):')
+print('-' * terminal_size)
+friends = user.friends(count=3)
+for friend in friends:
+    pprint(friend._json)
+    print('-' * terminal_size)
+print('=' * terminal_size)
+
+print('-' * terminal_size)
+print('Home timeline (3 tweets):')
+print('-' * terminal_size)
+home_timeline = api.home_timeline(count=3)
+for status in home_timeline:
+    pprint(status._json)
+    print('-' * terminal_size)
+print('=' * terminal_size)
 
 # 継続してログインしない場合は明示的にログアウト
 ## 単に Cookie を消去するだけだと Twitter にセッションが残り続けてしまう
-## ログアウト後は、取得した Cookie では再認証できなくなる
-#auth_handler.logout()
-#os.unlink('cookie.pickle')
+## ログアウト後は、取得した Cookie は再利用できなくなる
+auth_handler.logout()
+os.unlink('cookie.pickle')
 ```
 
 ## License

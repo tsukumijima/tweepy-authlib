@@ -97,4 +97,4 @@ print('=' * terminal_size)
 ## 単に Cookie を消去するだけだと Twitter にセッションが残り続けてしまう
 ## ログアウト後は、取得した Cookie は再利用できなくなる
 #auth_handler.logout()
-#os.unlink('cookie.json')
+#os.unlink('cookie.pickle')
