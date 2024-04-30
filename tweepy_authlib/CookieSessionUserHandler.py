@@ -194,7 +194,7 @@ class CookieSessionUserHandler(AuthBase):
         cookie_header = ''
         for key, value in self._session.cookies.get_dict().items():
             cookie_header += f'{key}={value}; '
-        request.headers['cookie'] = cookie_header
+        request.headers['cookie'] = cookie_header.rstrip('; ')
 
         # API からレスポンスが返ってきた際に自動で CSRF トークンを更新する
         ## やらなくても大丈夫かもしれないけど、念のため
