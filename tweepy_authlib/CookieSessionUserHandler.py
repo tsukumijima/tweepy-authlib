@@ -199,7 +199,7 @@ class CookieSessionUserHandler(AuthBase):
         # それ以外の API ではそのまま Twitter Web App の Bearer トークンを使い続けることで、不審判定される可能性を下げる
         ## OldTweetDeck の interception.js に記載の API のうち、明示的に PUBLIC_TOKEN[1] が設定されている API が対象
         ## ref: https://raw.githubusercontent.com/dimdenGD/OldTweetDeck/main/src/interception.js
-        TWEETDECK_API_BEARER_TOKEN_REQUIRED_APIS = [
+        TWEETDECK_BEARER_TOKEN_REQUIRED_APIS = [
             '/1.1/statuses/home_timeline.json',
             '/1.1/lists/statuses.json',
             '/1.1/activity/about_me.json',
@@ -208,7 +208,7 @@ class CookieSessionUserHandler(AuthBase):
             '/1.1/collections/',
         ]
         assert request.url is not None
-        if any(api_url in request.url for api_url in TWEETDECK_API_BEARER_TOKEN_REQUIRED_APIS):
+        if any(api_url in request.url for api_url in TWEETDECK_BEARER_TOKEN_REQUIRED_APIS):
             request.headers['authorization'] = self.TWEETDECK_BEARER_TOKEN
 
         # upload.twitter.com 以下の API のみ、Twitter Web App の挙動に合わせいくつかのヘッダーを削除する
