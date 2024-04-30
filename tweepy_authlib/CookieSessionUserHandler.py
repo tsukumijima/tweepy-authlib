@@ -31,6 +31,12 @@ class CookieSessionUserHandler(AuthBase):
     USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
     SEC_CH_UA = '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"'
 
+    # Twitter Web App (GraphQL API) の Bearer トークン
+    TWITTER_WEB_APP_BEARER_TOKEN = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
+
+    # 旧 TweetDeck (Twitter API v1.1) の Bearer トークン
+    TWEETDECK_BEARER_TOKEN = 'Bearer AAAAAAAAAAAAAAAAAAAAAFQODgEAAAAAVHTp76lzh3rFzcHbmHVvQxYYpTw%3DckAlMINMjmCwxUcaXbAN4XqJVdgMJaHqNOFgPMK0zN1qLqLQCF'
+
 
     def __init__(self, cookies: Optional[RequestsCookieJar] = None, screen_name: Optional[str] = None, password: Optional[str] = None) -> None:
         """
@@ -95,7 +101,7 @@ class CookieSessionUserHandler(AuthBase):
             'accept': '*/*',
             'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'ja',
-            'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+            'authorization': self.TWITTER_WEB_APP_BEARER_TOKEN,
             'content-type': 'application/json',
             'origin': 'https://twitter.com',
             'referer': 'https://twitter.com/',
@@ -118,7 +124,7 @@ class CookieSessionUserHandler(AuthBase):
             'accept': '*/*',
             'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'ja',
-            'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+            'authorization': self.TWITTER_WEB_APP_BEARER_TOKEN,
             'content-type': 'application/json',
             'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
@@ -160,14 +166,14 @@ class CookieSessionUserHandler(AuthBase):
         if guest_token:
             self._auth_flow_api_headers['x-guest-token'] = guest_token
 
-        # Cookie の "ct0" 値 (CSRF トークン) を TweetDeck API 用ヘッダーにセット
+        # Cookie の "ct0" 値 (CSRF トークン) を GraphQL API 用ヘッダーにセット
         csrf_token = self._session.cookies.get('ct0')
         if csrf_token:
             self._auth_flow_api_headers['x-csrf-token'] = csrf_token
             self._graphql_api_headers['x-csrf-token'] = csrf_token
 
         # セッションのヘッダーを GraphQL API 用のものに差し替える
-        ## 以前は旧 TweetDeck API 用 ヘッダーに差し替えていたが、旧 TweetDeck が完全廃止されたことで
+        ## 以前は旧 TweetDeck API 用ヘッダーに差し替えていたが、旧 TweetDeck が完全廃止されたことで
         ## 逆に怪しまれる可能性があるため GraphQL API 用ヘッダーに変更した
         ## cross_origin=True を指定して、twitter.com から api.twitter.com にクロスオリジンリクエストを送信した際のヘッダーを模倣する
         self._session.headers.clear()
@@ -187,6 +193,23 @@ class CookieSessionUserHandler(AuthBase):
 
         # リクエストヘッダーを認証用セッションのものに差し替える
         request.headers.update(self._session.headers)  # type: ignore
+
+        # Twitter API v1.1 の一部 API には旧 TweetDeck 用の Bearer トークンでないとアクセスできないため、
+        # 該当の API のみ旧 TweetDeck 用の Bearer トークンに差し替える
+        # それ以外の API ではそのまま Twitter Web App の Bearer トークンを使い続けることで、不審判定される可能性を下げる
+        ## OldTweetDeck の interception.js に記載の API のうち、明示的に PUBLIC_TOKEN[1] が設定されている API が対象
+        ## ref: https://raw.githubusercontent.com/dimdenGD/OldTweetDeck/main/src/interception.js
+        TWEETDECK_API_BEARER_TOKEN_REQUIRED_APIS = [
+            '/1.1/statuses/home_timeline.json',
+            '/1.1/lists/statuses.json',
+            '/1.1/activity/about_me.json',
+            '/1.1/statuses/mentions_timeline.json',
+            '/1.1/favorites/',
+            '/1.1/collections/',
+        ]
+        assert request.url is not None
+        if any(api_url in request.url for api_url in TWEETDECK_API_BEARER_TOKEN_REQUIRED_APIS):
+            request.headers['authorization'] = self.TWEETDECK_BEARER_TOKEN
 
         # Cookie を認証用セッションのものに差し替える
         request._cookies.update(self._session.cookies)  # type: ignore
@@ -258,9 +281,10 @@ class CookieSessionUserHandler(AuthBase):
         """
 
         headers = self._graphql_api_headers.copy()
+
+        # クロスオリジン用に origin と referer を追加
+        # Twitter Web App から api.twitter.com にクロスオリジンリクエストを送信する際のヘッダーを模倣する
         if cross_origin is True:
-            # クロスオリジン用に origin と referer を追加
-            # Twitter Web App から api.twitter.com にクロスオリジンリクエストを送信する際のヘッダーを模倣する
             headers['origin'] = 'https://twitter.com'
             headers['referer'] = 'https://twitter.com/'
 
