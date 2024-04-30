@@ -5,11 +5,10 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/tweepy-authlib.svg)](https://pypi.org/project/tweepy-authlib)
 
 > [!WARNING]  
-> **旧 TweetDeck の完全廃止にともない、09/14 頃から内部的に残存していた Twitter API v1.1 の段階的なシャットダウンが開始されてしまいました。**  
-> このため、**v1.1.0 以前の TweetDeck の Bearer トークンを使い API v1.1 にアクセスする実装が動作しなくなっています。**  
-> **これに伴い、Bearer トークンに代わりに Twitter Web App の Bearer トークンを利用するように変更した、v1.2.0 をリリースしました。**  
-> statuses/update を含めた主にツイート系の API v1.1 にすでにアクセスできない状態で、今後も段階的にアクセスできなくなる API が増えていくと思われます。  
-> 09/14 時点では home_timeline や verify_credentials などの一部 API には今まで通りの方法で tweepy と tweepy-authlib を使いアクセスできますが、今後はそれらの API にもアクセスできなくなる可能性があります。
+> **旧 TweetDeck の完全廃止にともない、2023/09/14 頃から内部的に残存していた Twitter API v1.1 の段階的なシャットダウンが開始されています。**  
+> **2024/04/30 時点では、account/verify_credentials や upload.twitter.com 以下の API を除き大半の Twitter API v1.1 にアクセスできなくなっています。**  
+> 現在 tweepy-authlib を使いタイムライン取得 / ツイート検索 / ツイート送信機能などを実装するには、別途 GraphQL API (Twitter Web App の内部 API) クライアントを自作する必要があります。  
+> 私が [KonomiTV](https://github.com/tsukumijima/KonomiTV) 向けに開発した GraphQL API クライアントの実装が [こちら](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/utils/TwitterGraphQLAPI.py) ([使用例](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/routers/TwitterRouter.py)) にありますので、実装時の参考にしてください。
 
 -----
 
@@ -30,9 +29,7 @@ Twitter Web App (Web 版公式クライアント) の内部 API を使い、[Twe
 スクリーンネーム (ex: `@elonmusk`) とパスワードを指定して認証し、取得した Cookie などの認証情報で Twitter API v1.1 にアクセスできます。  
 毎回ログインしていては面倒 & 不審なアクセス扱いされそうなので、Cookie をファイルなどに保存し、次回以降はその Cookie を使ってログインする機能もあります。
 
-Tweepy を利用しているソースコードのうち、認証部分 (`tweepy.auth.OAuth1UserHandler`) を `tweepy_authlib.CookieSessionUserHandler` に置き換えるだけで、かんたんに Cookie ベースの認証に変更できます！
-
-Twitter API の有料化に伴って通常の OAuth API が利用できなくなった場合も、この `CookieSessionUserHandler` を使えば引き続き Twitter API v1.1 にアクセスできるはず…！  
+Tweepy を利用しているソースコードのうち、認証部分 (`tweepy.auth.OAuth1UserHandler`) を `tweepy_authlib.CookieSessionUserHandler` に置き換えるだけで、かんたんに Cookie ベースの認証に変更できます！  
 認証部分以外は OAuth API のときの実装がそのまま使えるので、ソースコードの変更も最小限に抑えられます。
 
 > [!NOTE]  
@@ -136,8 +133,6 @@ api = tweepy.API(auth_handler)
 print('-' * terminal_size)
 print(api.verify_credentials())
 print('-' * terminal_size)
-print(api.home_timeline())
-print('-' * terminal_size)
 
 # 継続してログインしない場合は明示的にログアウト
 ## 単に Cookie を消去するだけだと Twitter にセッションが残り続けてしまう
@@ -202,8 +197,6 @@ else:
 api = tweepy.API(auth_handler)
 print('-' * terminal_size)
 print(api.verify_credentials())
-print('-' * terminal_size)
-print(api.home_timeline())
 print('-' * terminal_size)
 
 # 継続してログインしない場合は明示的にログアウト
