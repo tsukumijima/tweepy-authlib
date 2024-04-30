@@ -23,7 +23,7 @@
 > また現時点で廃止されていない API を利用したサンプルコードが [example_json.py](example_json.py) と [example_pickle.py](example_pickle.py) にありますので、そちらもご一読ください。
 
 > [!NOTE]  
-> **tweepy-authlib v1.4.0 以降では、より厳密に Twitter Web App からの HTTP リクエストに偽装したり、一部の Twitter API v1.1 に再びアクセスできるようになるなど、様々な改善が行われています！**  
+> **tweepy-authlib v1.4.1 以降では、より厳密に Twitter Web App からの HTTP リクエストに偽装したり、一部の Twitter API v1.1 に再びアクセスできるようになるなど、様々な改善が行われています！**  
 > 凍結やアカウントロックのリスクを下げるためにも、最新版の tweepy-authlib の利用をおすすめします。
 
 > [!IMPORTANT]  
