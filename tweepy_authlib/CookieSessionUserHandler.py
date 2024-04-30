@@ -68,11 +68,9 @@ class CookieSessionUserHandler(AuthBase):
 
         # HTML 取得時の HTTP リクエストヘッダー
         self._html_headers = {
-            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
             'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'ja',
-            'cache-control': 'no-cache',
-            'pragma': 'no-cache',
             'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
@@ -98,9 +96,7 @@ class CookieSessionUserHandler(AuthBase):
             'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'ja',
             'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
-            'cache-control': 'no-cache',
             'origin': 'https://twitter.com',
-            'pragma': 'no-cache',
             'referer': 'https://twitter.com/',
             'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
@@ -115,31 +111,6 @@ class CookieSessionUserHandler(AuthBase):
             'x-twitter-client-language': 'ja',
         }
 
-        # 旧 TweetDeck API (Twitter API v1.1) アクセス時の HTTP リクエストヘッダー
-        self._tweetdeck_api_headers = {
-            'accept': 'text/plain, */*; q=0.01',
-            'accept-encoding': 'gzip, deflate, br',
-            'accept-language': 'ja',
-            # 旧 TweetDeck の Bearer トークンが無効化されたため、代わりに Twitter Web App の Bearer トークンを使う
-            # 'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAAF7aAAAAAAAASCiRjWvh7R5wxaKkFp7MM%2BhYBqM%3DbQ0JPmjU9F6ZoMhDfI4uTNAaQuTDm2uO9x3WFVr2xBZ2nhjdP0',
-            'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
-            'cache-control': 'no-cache',
-            # 旧 TweetDeck 自体は廃止されているので、origin と referer は Twitter Web App からのアクセスという体にしている
-            'origin': 'https:/twitter.com',
-            'pragma': 'no-cache',
-            'referer': 'https://twitter.com/',
-            'sec-ch-ua': self.SEC_CH_UA,
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-site',
-            'user-agent': self.USER_AGENT,
-            'x-csrf-token': None,  # ここは後でセットする
-            'x-twitter-auth-type': 'OAuth2Session',
-            'x-twitter-client-version': 'Twitter-TweetDeck-blackbird-chrome/4.0.220811153004 web/',
-        }
-
         # GraphQL API (Twitter Web App API) アクセス時の HTTP リクエストヘッダー
         ## tweepy-authlib 内部では使われておらず、ユーザーの便宜のために用意しているもの
         ## GraphQL API は https://twitter.com/i/api/graphql/ 配下にあり同一ドメインのため、origin と referer は意図的に省略している
@@ -148,8 +119,6 @@ class CookieSessionUserHandler(AuthBase):
             'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'ja',
             'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
-            'cache-control': 'no-cache',
-            'pragma': 'no-cache',
             'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
@@ -194,12 +163,14 @@ class CookieSessionUserHandler(AuthBase):
         csrf_token = self._session.cookies.get('ct0')
         if csrf_token:
             self._auth_flow_api_headers['x-csrf-token'] = csrf_token
-            self._tweetdeck_api_headers['x-csrf-token'] = csrf_token
             self._graphql_api_headers['x-csrf-token'] = csrf_token
 
-        # これ以降は基本 TweetDeck API へのアクセスしか行わないので、セッションのヘッダーを TweetDeck API 用のものに差し替える
+        # セッションのヘッダーを GraphQL API 用のものに差し替える
+        ## 以前は旧 TweetDeck API 用 ヘッダーに差し替えていたが、旧 TweetDeck が完全廃止されたことで
+        ## 逆に怪しまれる可能性があるため GraphQL API 用ヘッダーに変更した
+        ## cross_origin=True を指定して、twitter.com から api.twitter.com にクロスオリジンリクエストを送信した際のヘッダーを模倣する
         self._session.headers.clear()
-        self._session.headers.update(self._tweetdeck_api_headers)
+        self._session.headers.update(self.get_graphql_api_headers(cross_origin=True))
 
 
     def __call__(self, request: PreparedRequest) -> PreparedRequest:
@@ -270,30 +241,30 @@ class CookieSessionUserHandler(AuthBase):
         return self._session.cookies.get_dict()
 
 
-    def get_tweetdeck_api_headers(self) -> Dict[str, str]:
-        """
-        旧 TweetDeck API (Twitter API v1.1) アクセス用の HTTP リクエストヘッダーを取得する
-        このリクエストヘッダーを使い独自に API リクエストを行う際は、
-        必ず x-csrf-token ヘッダーの値を常に Cookie 内の "ct0" と一致させるように実装しなければならない
-
-        Returns:
-            Dict[str, str]: 旧 TweetDeck API (Twitter API v1.1) アクセス用の HTTP リクエストヘッダー
-        """
-
-        return self._tweetdeck_api_headers
-
-
-    def get_graphql_api_headers(self) -> Dict[str, str]:
+    def get_graphql_api_headers(self, cross_origin: bool = False) -> Dict[str, str]:
         """
         GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダーを取得する
         このリクエストヘッダーを使い独自に API リクエストを行う際は、
         必ず x-csrf-token ヘッダーの値を常に Cookie 内の "ct0" と一致させるように実装しなければならない
+        Twitter API v1.1 に使う場合は cross_origin=True を指定すること (api.twitter.com が twitter.com から見て cross-origin になるため)
+        逆に GraphQL API に使う場合は cross_origin=False でなければならない (GraphQL API は twitter.com から見て same-origin になるため)
+
+        Args:
+            cross_origin (bool, optional): 返すヘッダーを twitter.com 以外のオリジンに送信するかどうか. Defaults to False.
 
         Returns:
             Dict[str, str]: GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダー
         """
 
-        return self._graphql_api_headers
+        if cross_origin is False:
+            return self._graphql_api_headers
+        else:
+            # クロスオリジン用に origin と referer を追加
+            # Twitter Web App から api.twitter.com にクロスオリジンリクエストを送信する際のヘッダーを模倣する
+            headers = self._graphql_api_headers.copy()
+            headers['origin'] = 'https://twitter.com'
+            headers['referer'] = 'https://twitter.com/'
+            return headers
 
 
     def logout(self) -> None:
@@ -346,7 +317,6 @@ class CookieSessionUserHandler(AuthBase):
             if self._session.cookies.get('ct0') != csrf_token:
                 self._session.cookies.set('ct0', csrf_token, domain='.twitter.com')
             self._auth_flow_api_headers['x-csrf-token'] = csrf_token
-            self._tweetdeck_api_headers['x-csrf-token'] = csrf_token
             self._graphql_api_headers['x-csrf-token'] = csrf_token
             self._session.headers['x-csrf-token'] = csrf_token
 
