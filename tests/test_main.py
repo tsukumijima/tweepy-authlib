@@ -37,15 +37,21 @@ def test_06():
 
     # 環境変数に TWITTER_SCREEN_NAME と TWITTER_PASSWORD が設定されている場合のみ実行
     if 'TWITTER_SCREEN_NAME' in os.environ and 'TWITTER_PASSWORD' in os.environ:
+        print('=' * terminal_size)
         print(f'Logging in as @{os.environ["TWITTER_SCREEN_NAME"]}.')
         auth_handler = CookieSessionUserHandler(screen_name=os.environ['TWITTER_SCREEN_NAME'], password=os.environ['TWITTER_PASSWORD'])
+        print('-' * terminal_size)
         print(f'Logged in as @{os.environ["TWITTER_SCREEN_NAME"]}.')
         api = tweepy.API(auth_handler)
+
+        print('=' * terminal_size)
+        print('Logged in user:')
+        print('-' * terminal_size)
         user = api.verify_credentials()
-        print('-' * terminal_size)
-        print(user)
-        print('-' * terminal_size)
         assert user.screen_name == os.environ['TWITTER_SCREEN_NAME']
+        pprint(user._json)
+        print('=' * terminal_size)
+
         with open('cookie.pickle', 'wb') as f:
             pickle.dump(auth_handler.get_cookies(), f)
     else:
@@ -55,26 +61,27 @@ def test_07(tweet: bool = False):
 
     # 環境変数に TWITTER_SCREEN_NAME と TWITTER_PASSWORD が設定されている場合のみ実行
     if 'TWITTER_SCREEN_NAME' in os.environ and 'TWITTER_PASSWORD' in os.environ:
+        print('=' * terminal_size)
         print(f'Logging in as @{os.environ["TWITTER_SCREEN_NAME"]}.')
+        print('-' * terminal_size)
         with open('cookie.pickle', 'rb') as f:
             jar = pickle.load(f)
             print('Cookie:')
-            print(jar)
+            pprint(jar.get_dict())
             auth_handler = CookieSessionUserHandler(cookies=jar)
+        print('-' * terminal_size)
         print(f'Logged in as @{os.environ["TWITTER_SCREEN_NAME"]}.')
         os.unlink('cookie.pickle')
         api = tweepy.API(auth_handler)
 
         print('=' * terminal_size)
-        print('-' * terminal_size)
-        print('Logged in as:')
+        print('Logged in user:')
         print('-' * terminal_size)
         user = api.verify_credentials()
         assert user.screen_name == os.environ['TWITTER_SCREEN_NAME']
         pprint(user._json)
         print('=' * terminal_size)
 
-        print('-' * terminal_size)
         print('Followers (3 users):')
         print('-' * terminal_size)
         followers = user.followers(count=3)
@@ -83,7 +90,6 @@ def test_07(tweet: bool = False):
             print('-' * terminal_size)
         print('=' * terminal_size)
 
-        print('-' * terminal_size)
         print('Following (3 users):')
         print('-' * terminal_size)
         friends = user.friends(count=3)
@@ -92,13 +98,23 @@ def test_07(tweet: bool = False):
             print('-' * terminal_size)
         print('=' * terminal_size)
 
-        print('-' * terminal_size)
         print('Home timeline (3 tweets):')
         print('-' * terminal_size)
         home_timeline = api.home_timeline(count=3)
         for status in home_timeline:
             pprint(status._json)
             print('-' * terminal_size)
+        print('=' * terminal_size)
+
+        tweet_id = home_timeline[0].id
+        print('Like tweet:')
+        print('-' * terminal_size)
+        pprint(api.create_favorite(tweet_id)._json)
+        print('=' * terminal_size)
+
+        print('Unlike tweet:')
+        print('-' * terminal_size)
+        pprint(api.destroy_favorite(tweet_id)._json)
         print('=' * terminal_size)
 
         auth_handler.logout()

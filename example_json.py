@@ -65,14 +65,13 @@ else:
 api = tweepy.API(auth_handler)
 
 print('=' * terminal_size)
-print('-' * terminal_size)
-print('Logged in as:')
+print('Logged in user:')
 print('-' * terminal_size)
 user = api.verify_credentials()
+assert user.screen_name == os.environ['TWITTER_SCREEN_NAME']
 pprint(user._json)
 print('=' * terminal_size)
 
-print('-' * terminal_size)
 print('Followers (3 users):')
 print('-' * terminal_size)
 followers = user.followers(count=3)
@@ -81,7 +80,6 @@ for follower in followers:
     print('-' * terminal_size)
 print('=' * terminal_size)
 
-print('-' * terminal_size)
 print('Following (3 users):')
 print('-' * terminal_size)
 friends = user.friends(count=3)
@@ -90,13 +88,23 @@ for friend in friends:
     print('-' * terminal_size)
 print('=' * terminal_size)
 
-print('-' * terminal_size)
 print('Home timeline (3 tweets):')
 print('-' * terminal_size)
 home_timeline = api.home_timeline(count=3)
 for status in home_timeline:
     pprint(status._json)
     print('-' * terminal_size)
+print('=' * terminal_size)
+
+tweet_id = home_timeline[0].id
+print('Like tweet:')
+print('-' * terminal_size)
+pprint(api.create_favorite(tweet_id)._json)
+print('=' * terminal_size)
+
+print('Unlike tweet:')
+print('-' * terminal_size)
+pprint(api.destroy_favorite(tweet_id)._json)
 print('=' * terminal_size)
 
 # 継続してログインしない場合は明示的にログアウト
