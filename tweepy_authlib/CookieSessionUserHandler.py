@@ -27,8 +27,9 @@ class CookieSessionUserHandler(AuthBase):
     ref: https://github.com/fa0311/TwitterFrontendFlow/blob/master/TwitterFrontendFlow/TwitterFrontendFlow.py
     """
 
-    user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'
-    sec_ch_ua = '"Chromium";v="116", "Not)A;Brand";v="24", "Google Chrome";v="116"'
+    # User-Agent と Sec-CH-UA を Chrome 124 に偽装
+    USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    SEC_CH_UA = '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"'
 
 
     def __init__(self, cookies: Optional[RequestsCookieJar] = None, screen_name: Optional[str] = None, password: Optional[str] = None) -> None:
@@ -72,7 +73,7 @@ class CookieSessionUserHandler(AuthBase):
             'accept-language': 'ja',
             'cache-control': 'no-cache',
             'pragma': 'no-cache',
-            'sec-ch-ua': self.sec_ch_ua,
+            'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
             'sec-fetch-dest': 'document',
@@ -80,7 +81,7 @@ class CookieSessionUserHandler(AuthBase):
             'sec-fetch-site': 'same-origin',
             'sec-fetch-user': '?1',
             'upgrade-insecure-requests': '1',
-            'user-agent': self.user_agent,
+            'user-agent': self.USER_AGENT,
         }
 
         # JavaScript 取得時の HTTP リクエストヘッダー
@@ -101,13 +102,13 @@ class CookieSessionUserHandler(AuthBase):
             'origin': 'https://twitter.com',
             'pragma': 'no-cache',
             'referer': 'https://twitter.com/',
-            'sec-ch-ua': self.sec_ch_ua,
+            'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-site',
-            'user-agent': self.user_agent,
+            'user-agent': self.USER_AGENT,
             'x-csrf-token': None,  # ここは後でセットする
             'x-guest-token': None,  # ここは後でセットする
             'x-twitter-active-user': 'yes',
@@ -127,13 +128,13 @@ class CookieSessionUserHandler(AuthBase):
             'origin': 'https:/twitter.com',
             'pragma': 'no-cache',
             'referer': 'https://twitter.com/',
-            'sec-ch-ua': self.sec_ch_ua,
+            'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-site',
-            'user-agent': self.user_agent,
+            'user-agent': self.USER_AGENT,
             'x-csrf-token': None,  # ここは後でセットする
             'x-twitter-auth-type': 'OAuth2Session',
             'x-twitter-client-version': 'Twitter-TweetDeck-blackbird-chrome/4.0.220811153004 web/',
@@ -143,19 +144,19 @@ class CookieSessionUserHandler(AuthBase):
         ## tweepy-authlib 内部では使われておらず、ユーザーの便宜のために用意しているもの
         ## GraphQL API は https://twitter.com/i/api/graphql/ 配下にあり同一ドメインのため、origin と referer は意図的に省略している
         self._graphql_api_headers = {
-            'accept': 'text/plain, */*; q=0.01',
+            'accept': '*/*',
             'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'ja',
             'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
             'cache-control': 'no-cache',
             'pragma': 'no-cache',
-            'sec-ch-ua': self.sec_ch_ua,
+            'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-site',
-            'user-agent': self.user_agent,
+            'user-agent': self.USER_AGENT,
             'x-csrf-token': None,  # ここは後でセットする
             'x-twitter-active-user': 'yes',
             'x-twitter-auth-type': 'OAuth2Session',
