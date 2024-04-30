@@ -223,7 +223,7 @@ class CookieSessionUserHandler(AuthBase):
         返される RequestsCookieJar を pickle などで保存しておくことで、再ログインせずにセッションを継続できる
 
         Returns:
-            str: RequestsCookieJar
+            RequestsCookieJar: Cookie
         """
 
         return self._session.cookies
