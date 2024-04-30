@@ -192,7 +192,11 @@ class CookieSessionUserHandler(AuthBase):
         """
 
         # リクエストヘッダーを認証用セッションのものに差し替える
+        # content-type を上書きしないよう、content-type を控えておいてから差し替える
+        content_type = request.headers.get('content-type', None)
         request.headers.update(self._session.headers)  # type: ignore
+        if content_type is not None:
+            request.headers['content-type'] = content_type  # 元の content-type に戻す
 
         # Twitter API v1.1 の一部 API には旧 TweetDeck 用の Bearer トークンでないとアクセスできないため、
         # 該当の API のみ旧 TweetDeck 用の Bearer トークンに差し替える
