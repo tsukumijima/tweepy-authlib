@@ -6,8 +6,18 @@
 
 > [!WARNING]  
 > **旧 TweetDeck の完全廃止にともない、2023/09/14 頃から内部的に残存していた Twitter API v1.1 の段階的なシャットダウンが開始されています。**  
-> **2024/04/30 時点では、account/verify_credentials や upload.twitter.com 以下の API を除き大半の Twitter API v1.1 にアクセスできなくなっています。**  
-> 現在 tweepy-authlib を使いタイムライン取得 / ツイート検索 / ツイート送信機能などを実装するには、別途 GraphQL API (Twitter Web App の内部 API) クライアントを自作する必要があります。  
+> **2024/04/30 時点では、下記 API が既に廃止されています ([参考](https://github.com/dimdenGD/OldTweetDeck/blob/main/src/interception.js)) 。リストにない API も既に廃止されている可能性があります。**
+> - `search/tweets` : ツイート検索
+> - `search/universal` : ツイート検索 (旧 TweetDeck 独自 API)
+> - `statuses/update` : ツイート投稿
+> - `statuses/retweet/:id` : リツイート
+> - `statuses/unretweet/:id` : リツイート取り消し
+> - `statuses/show/:id` : ツイート詳細
+> - `statuses/destroy/:id` : ツイート削除
+> - `statuses/user_timeline` : ユーザータイムライン
+> - `users/search` : ユーザー検索
+> 
+> **現在 tweepy-authlib を利用して上記機能を実装するには、別途 GraphQL API (Twitter Web App の内部 API) クライアントを自作する必要があります。**  
 > 私が [KonomiTV](https://github.com/tsukumijima/KonomiTV) 向けに開発した GraphQL API クライアントの実装が [こちら](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/utils/TwitterGraphQLAPI.py) ([使用例](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/routers/TwitterRouter.py)) にありますので、実装時の参考にしてください。
 
 > [!IMPORTANT]  
