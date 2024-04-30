@@ -10,6 +10,10 @@
 > 現在 tweepy-authlib を使いタイムライン取得 / ツイート検索 / ツイート送信機能などを実装するには、別途 GraphQL API (Twitter Web App の内部 API) クライアントを自作する必要があります。  
 > 私が [KonomiTV](https://github.com/tsukumijima/KonomiTV) 向けに開発した GraphQL API クライアントの実装が [こちら](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/utils/TwitterGraphQLAPI.py) ([使用例](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/routers/TwitterRouter.py)) にありますので、実装時の参考にしてください。
 
+> [!IMPORTANT]  
+> 2024/04/30 時点では [tweepy-authlib が依存する js2py が Python 3.12 に対応していない](https://github.com/tsukumijima/tweepy-authlib/issues/5) ため、tweepy-authlib は Python 3.12 以降では動作しません。  
+> [js2py](https://github.com/PiotrDabkowski/Js2Py) の Python 3.12 対応が完了するまで、Python 3.11 以下での利用をおすすめします。
+
 -----
 
 **Table of Contents**
