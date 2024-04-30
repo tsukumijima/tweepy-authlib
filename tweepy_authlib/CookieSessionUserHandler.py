@@ -120,7 +120,6 @@ class CookieSessionUserHandler(AuthBase):
             'accept-language': 'ja',
             'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
             'content-type': 'application/json',
-            'origin': 'https://twitter.com',
             'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
@@ -258,14 +257,14 @@ class CookieSessionUserHandler(AuthBase):
             Dict[str, str]: GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダー
         """
 
-        if cross_origin is False:
-            return self._graphql_api_headers
-        else:
-            # クロスオリジン用に referer を追加
+        headers = self._graphql_api_headers.copy()
+        if cross_origin is True:
+            # クロスオリジン用に origin と referer を追加
             # Twitter Web App から api.twitter.com にクロスオリジンリクエストを送信する際のヘッダーを模倣する
-            headers = self._graphql_api_headers.copy()
+            headers['origin'] = 'https://twitter.com'
             headers['referer'] = 'https://twitter.com/'
-            return headers
+
+        return headers
 
 
     def logout(self) -> None:
