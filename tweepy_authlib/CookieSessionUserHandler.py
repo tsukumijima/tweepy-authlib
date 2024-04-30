@@ -211,6 +211,12 @@ class CookieSessionUserHandler(AuthBase):
         if any(api_url in request.url for api_url in TWEETDECK_API_BEARER_TOKEN_REQUIRED_APIS):
             request.headers['authorization'] = self.TWEETDECK_BEARER_TOKEN
 
+        # upload.twitter.com 以下の API のみ、Twitter Web App の挙動に合わせいくつかのヘッダーを削除する
+        if 'upload.twitter.com' in request.url:
+            request.headers.pop('x-client-transaction-id', None)  # 未実装だが将来的に実装した時のため
+            request.headers.pop('x-twitter-active-user', None)
+            request.headers.pop('x-twitter-client-language', None)
+
         # Cookie を認証用セッションのものに差し替える
         request._cookies.update(self._session.cookies)  # type: ignore
         cookie_header = ''
