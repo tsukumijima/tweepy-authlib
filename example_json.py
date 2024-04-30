@@ -64,8 +64,6 @@ api = tweepy.API(auth_handler)
 print('-' * terminal_size)
 print(api.verify_credentials())
 print('-' * terminal_size)
-print(api.home_timeline())
-print('-' * terminal_size)
 
 # 継続してログインしない場合は明示的にログアウト
 ## 単に Cookie を消去するだけだと Twitter にセッションが残り続けてしまう
