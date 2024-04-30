@@ -4,6 +4,7 @@ import os
 import pickle
 import pytest
 import tweepy
+from pprint import pprint
 from tweepy_authlib import CookieSessionUserHandler
 
 
@@ -29,7 +30,7 @@ def test_04():
         CookieSessionUserHandler(screen_name='not__found__user', password='password')
 
 def test_05():
-    with pytest.raises(tweepy.BadRequest, match=r'.*399 - パスワードが正しくありません。.*'):
+    with pytest.raises(tweepy.BadRequest, match=r'.*366 - Required input \'LoginEnterAlternateIdentifierSubtask\' not provided\..*'):
         CookieSessionUserHandler(screen_name='elonmusk', password='password')
 
 def test_06():
@@ -63,11 +64,43 @@ def test_07(tweet: bool = False):
         print(f'Logged in as @{os.environ["TWITTER_SCREEN_NAME"]}.')
         os.unlink('cookie.pickle')
         api = tweepy.API(auth_handler)
+
+        print('=' * terminal_size)
+        print('-' * terminal_size)
+        print('Logged in as:')
+        print('-' * terminal_size)
         user = api.verify_credentials()
-        print('-' * terminal_size)
-        print(user)
-        print('-' * terminal_size)
         assert user.screen_name == os.environ['TWITTER_SCREEN_NAME']
+        pprint(user._json)
+        print('=' * terminal_size)
+
+        print('-' * terminal_size)
+        print('Followers (3 users):')
+        print('-' * terminal_size)
+        followers = user.followers(count=3)
+        for follower in followers:
+            pprint(follower._json)
+            print('-' * terminal_size)
+        print('=' * terminal_size)
+
+        print('-' * terminal_size)
+        print('Following (3 users):')
+        print('-' * terminal_size)
+        friends = user.friends(count=3)
+        for friend in friends:
+            pprint(friend._json)
+            print('-' * terminal_size)
+        print('=' * terminal_size)
+
+        print('-' * terminal_size)
+        print('Home timeline (3 tweets):')
+        print('-' * terminal_size)
+        home_timeline = api.home_timeline(count=3)
+        for status in home_timeline:
+            pprint(status._json)
+            print('-' * terminal_size)
+        print('=' * terminal_size)
+
         auth_handler.logout()
     else:
         pytest.skip('TWITTER_SCREEN_NAME or TWITTER_PASSWORD is not set.')

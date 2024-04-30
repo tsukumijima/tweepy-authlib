@@ -3,8 +3,10 @@ import os
 import json
 import tweepy
 from pathlib import Path
+from pprint import pprint
 from requests.cookies import RequestsCookieJar
 from tweepy_authlib import CookieSessionUserHandler
+
 
 try:
     terminal_size = os.get_terminal_size().columns
@@ -53,20 +55,52 @@ else:
         raise Exception(f'Unexpected error occurred while authenticate with password ({error_message})')
 
     # 現在のログインセッションの Cookie を取得
-    cookies = auth_handler.get_cookies()
+    cookies_dict = auth_handler.get_cookies_as_dict()
 
-    # Cookie を pickle 化して保存
+    # Cookie を JSON ファイルに保存
     with open('cookie.json', 'w') as f:
-        json.dump(cookies.get_dict(), f, ensure_ascii=False, indent=4)
+        json.dump(cookies_dict, f, ensure_ascii=False, indent=4)
 
 # Tweepy で Twitter API v1.1 にアクセス
 api = tweepy.API(auth_handler)
+
+print('=' * terminal_size)
 print('-' * terminal_size)
-print(api.verify_credentials())
+print('Logged in as:')
 print('-' * terminal_size)
+user = api.verify_credentials()
+pprint(user._json)
+print('=' * terminal_size)
+
+print('-' * terminal_size)
+print('Followers (3 users):')
+print('-' * terminal_size)
+followers = user.followers(count=3)
+for follower in followers:
+    pprint(follower._json)
+    print('-' * terminal_size)
+print('=' * terminal_size)
+
+print('-' * terminal_size)
+print('Following (3 users):')
+print('-' * terminal_size)
+friends = user.friends(count=3)
+for friend in friends:
+    pprint(friend._json)
+    print('-' * terminal_size)
+print('=' * terminal_size)
+
+print('-' * terminal_size)
+print('Home timeline (3 tweets):')
+print('-' * terminal_size)
+home_timeline = api.home_timeline(count=3)
+for status in home_timeline:
+    pprint(status._json)
+    print('-' * terminal_size)
+print('=' * terminal_size)
 
 # 継続してログインしない場合は明示的にログアウト
 ## 単に Cookie を消去するだけだと Twitter にセッションが残り続けてしまう
-## ログアウト後は、取得した Cookie では再認証できなくなる
+## ログアウト後は、取得した Cookie は再利用できなくなる
 #auth_handler.logout()
 #os.unlink('cookie.json')
