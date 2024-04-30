@@ -113,14 +113,14 @@ class CookieSessionUserHandler(AuthBase):
         }
 
         # GraphQL API (Twitter Web App API) アクセス時の HTTP リクエストヘッダー
-        ## tweepy-authlib 内部では使われておらず、ユーザーの便宜のために用意しているもの
-        ## GraphQL API は https://twitter.com/i/api/graphql/ 配下にあり同一ドメインのため、origin と referer は意図的に省略している
+        ## GraphQL API は https://twitter.com/i/api/graphql/ 配下にあり同一ドメインのため、referer は意図的に省略している
         self._graphql_api_headers = {
             'accept': '*/*',
             'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'ja',
             'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
             'content-type': 'application/json',
+            'origin': 'https://twitter.com',
             'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
@@ -261,10 +261,9 @@ class CookieSessionUserHandler(AuthBase):
         if cross_origin is False:
             return self._graphql_api_headers
         else:
-            # クロスオリジン用に origin と referer を追加
+            # クロスオリジン用に referer を追加
             # Twitter Web App から api.twitter.com にクロスオリジンリクエストを送信する際のヘッダーを模倣する
             headers = self._graphql_api_headers.copy()
-            headers['origin'] = 'https://twitter.com'
             headers['referer'] = 'https://twitter.com/'
             return headers
 
@@ -281,13 +280,9 @@ class CookieSessionUserHandler(AuthBase):
         """
 
         # ログアウト API 専用ヘッダー
-        ## self._auth_flow_api_headers と基本的には共通なため、コピーして変更箇所のみ変更する
-        logout_headers = self._auth_flow_api_headers.copy()
+        ## self._graphql_api_headers と基本共通で、content-type だけ application/x-www-form-urlencoded に変更
+        logout_headers = self._graphql_api_headers.copy()
         logout_headers['content-type'] = 'application/x-www-form-urlencoded'
-        del logout_headers['x-guest-token']
-        logout_headers['x-twitter-auth-type'] = 'OAuth2Session'
-        ## ヘッダーの dict をアルファベット順にソート
-        logout_headers = dict(sorted(logout_headers.items(), key=lambda x: x[0]))
 
         # ログアウト API にログアウトすることを伝える
         ## この API を実行すると、サーバー側でセッションが切断され、今まで持っていたほとんどの Cookie が消去される
