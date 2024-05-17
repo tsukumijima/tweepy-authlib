@@ -30,7 +30,7 @@ def test_04():
         CookieSessionUserHandler(screen_name='not__found__user', password='password')
 
 def test_05():
-    with pytest.raises(tweepy.BadRequest, match=r'.*366 - Required input \'LoginEnterAlternateIdentifierSubtask\' not provided\..*'):
+    with pytest.raises(tweepy.BadRequest, match=r'.*399 - パスワードが正しくありません。.*'):
         CookieSessionUserHandler(screen_name='elonmusk', password='password')
 
 def test_06():

@@ -27,9 +27,9 @@ class CookieSessionUserHandler(AuthBase):
     ref: https://github.com/fa0311/TwitterFrontendFlow/blob/master/TwitterFrontendFlow/TwitterFrontendFlow.py
     """
 
-    # User-Agent と Sec-CH-UA を Chrome 124 に偽装
-    USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-    SEC_CH_UA = '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"'
+    # User-Agent と Sec-CH-UA を Chrome 125 に偽装
+    USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
+    SEC_CH_UA = '"Chromium";v="125", "Google Chrome";v="125", "Not-A.Brand";v="99"'
 
     # Twitter Web App (GraphQL API) の Bearer トークン
     TWITTER_WEB_APP_BEARER_TOKEN = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
@@ -91,7 +91,7 @@ class CookieSessionUserHandler(AuthBase):
         # JavaScript 取得時の HTTP リクエストヘッダー
         self._js_headers = self._html_headers.copy()
         self._js_headers['accept'] = '*/*'
-        self._js_headers['referer'] = 'https://twitter.com/'
+        self._js_headers['referer'] = 'https://x.com/'
         self._js_headers['sec-fetch-dest'] = 'script'
         self._js_headers['sec-fetch-mode'] = 'no-cors'
         del self._js_headers['sec-fetch-user']
@@ -103,8 +103,8 @@ class CookieSessionUserHandler(AuthBase):
             'accept-language': 'ja',
             'authorization': self.TWITTER_WEB_APP_BEARER_TOKEN,
             'content-type': 'application/json',
-            'origin': 'https://twitter.com',
-            'referer': 'https://twitter.com/',
+            'origin': 'https://x.com',
+            'referer': 'https://x.com/',
             'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
@@ -119,7 +119,7 @@ class CookieSessionUserHandler(AuthBase):
         }
 
         # GraphQL API (Twitter Web App API) アクセス時の HTTP リクエストヘッダー
-        ## GraphQL API は https://twitter.com/i/api/graphql/ 配下にあり同一ドメインのため、referer は意図的に省略している
+        ## GraphQL API は https://x.com/i/api/graphql/ 配下にあり同一ドメインのため、origin と referer は意図的に省略している
         self._graphql_api_headers = {
             'accept': '*/*',
             'accept-encoding': 'gzip, deflate, br',
@@ -175,7 +175,7 @@ class CookieSessionUserHandler(AuthBase):
         # セッションのヘッダーを GraphQL API 用のものに差し替える
         ## 以前は旧 TweetDeck API 用ヘッダーに差し替えていたが、旧 TweetDeck が完全廃止されたことで
         ## 逆に怪しまれる可能性があるため GraphQL API 用ヘッダーに変更した
-        ## cross_origin=True を指定して、twitter.com から api.twitter.com にクロスオリジンリクエストを送信した際のヘッダーを模倣する
+        ## cross_origin=True を指定して、x.com から api.x.com にクロスオリジンリクエストを送信した際のヘッダーを模倣する
         self._session.headers.clear()
         self._session.headers.update(self.get_graphql_api_headers(cross_origin=True))
 
@@ -198,11 +198,17 @@ class CookieSessionUserHandler(AuthBase):
         if content_type is not None:
             request.headers['content-type'] = content_type  # 元の content-type に戻す
 
+        # リクエストがまだ *.twitter.com に対して行われている場合は、*.x.com に差し替える
+        ## サードパーティー向け API は互換性のため引き続き api.twitter.com でアクセスできるはずだが、
+        ## tweepy-authlib でアクセスしている API は内部 API のため、api.twitter.com のままアクセスしていると怪しまれる可能性がある
+        assert request.url is not None
+        request.url = request.url.replace('twitter.com/', 'x.com/')
+
         # Twitter API v1.1 の一部 API には旧 TweetDeck 用の Bearer トークンでないとアクセスできないため、
         # 該当の API のみ旧 TweetDeck 用の Bearer トークンに差し替える
         # それ以外の API ではそのまま Twitter Web App の Bearer トークンを使い続けることで、不審判定される可能性を下げる
         ## OldTweetDeck の interception.js に記載の API のうち、明示的に PUBLIC_TOKEN[1] が設定されている API が対象
-        ## ref: https://raw.githubusercontent.com/dimdenGD/OldTweetDeck/main/src/interception.js
+        ## ref: https://github.com/dimdenGD/OldTweetDeck/blob/main/src/interception.js
         TWEETDECK_BEARER_TOKEN_REQUIRED_APIS = [
             '/1.1/statuses/home_timeline.json',
             '/1.1/lists/statuses.json',
@@ -211,12 +217,11 @@ class CookieSessionUserHandler(AuthBase):
             '/1.1/favorites/',
             '/1.1/collections/',
         ]
-        assert request.url is not None
         if any(api_url in request.url for api_url in TWEETDECK_BEARER_TOKEN_REQUIRED_APIS):
             request.headers['authorization'] = self.TWEETDECK_BEARER_TOKEN
 
-        # upload.twitter.com 以下の API のみ、Twitter Web App の挙動に合わせいくつかのヘッダーを削除する
-        if 'upload.twitter.com' in request.url:
+        # upload.twitter.com or upload.x.com 以下の API のみ、Twitter Web App の挙動に合わせいくつかのヘッダーを削除する
+        if 'upload.twitter.com' in request.url or 'upload.x.com' in request.url:
             request.headers.pop('x-client-transaction-id', None)  # 未実装だが将来的に実装した時のため
             request.headers.pop('x-twitter-active-user', None)
             request.headers.pop('x-twitter-client-language', None)
@@ -280,11 +285,11 @@ class CookieSessionUserHandler(AuthBase):
         GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダーを取得する
         このリクエストヘッダーを使い独自に API リクエストを行う際は、
         必ず x-csrf-token ヘッダーの値を常に Cookie 内の "ct0" と一致させるように実装しなければならない
-        Twitter API v1.1 に使う場合は cross_origin=True を指定すること (api.twitter.com が twitter.com から見て cross-origin になるため)
-        逆に GraphQL API に使う場合は cross_origin=False でなければならない (GraphQL API は twitter.com から見て same-origin になるため)
+        Twitter API v1.1 に使う場合は cross_origin=True を指定すること (api.x.com が x.com から見て cross-origin になるため)
+        逆に GraphQL API に使う場合は cross_origin=False でなければならない (GraphQL API は x.com から見て same-origin になるため)
 
         Args:
-            cross_origin (bool, optional): 返すヘッダーを twitter.com 以外のオリジンに送信するかどうか. Defaults to False.
+            cross_origin (bool, optional): 返すヘッダーを x.com 以外のオリジンに送信するかどうか. Defaults to False.
 
         Returns:
             Dict[str, str]: GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダー
@@ -293,10 +298,10 @@ class CookieSessionUserHandler(AuthBase):
         headers = self._graphql_api_headers.copy()
 
         # クロスオリジン用に origin と referer を追加
-        # Twitter Web App から api.twitter.com にクロスオリジンリクエストを送信する際のヘッダーを模倣する
+        # Twitter Web App から api.x.com にクロスオリジンリクエストを送信する際のヘッダーを模倣する
         if cross_origin is True:
-            headers['origin'] = 'https://twitter.com'
-            headers['referer'] = 'https://twitter.com/'
+            headers['origin'] = 'https://x.com'
+            headers['referer'] = 'https://x.com/'
 
         return headers
 
@@ -319,8 +324,8 @@ class CookieSessionUserHandler(AuthBase):
 
         # ログアウト API にログアウトすることを伝える
         ## この API を実行すると、サーバー側でセッションが切断され、今まで持っていたほとんどの Cookie が消去される
-        logout_api_response = self._session.post('https://api.twitter.com/1.1/account/logout.json', headers=logout_headers, data={
-            'redirectAfterLogout': 'https://twitter.com/account/switch',
+        logout_api_response = self._session.post('https://api.x.com/1.1/account/logout.json', headers=logout_headers, data={
+            'redirectAfterLogout': 'https://x.com/account/switch',
         })
         if logout_api_response.status_code != 200:
             raise self._get_tweepy_exception(logout_api_response)
@@ -345,7 +350,7 @@ class CookieSessionUserHandler(AuthBase):
         csrf_token = response.cookies.get('ct0')
         if csrf_token:
             if self._session.cookies.get('ct0') != csrf_token:
-                self._session.cookies.set('ct0', csrf_token, domain='.twitter.com')
+                self._session.cookies.set('ct0', csrf_token, domain='.x.com')
             self._auth_flow_api_headers['x-csrf-token'] = csrf_token
             self._graphql_api_headers['x-csrf-token'] = csrf_token
             self._session.headers['x-csrf-token'] = csrf_token
@@ -408,7 +413,7 @@ class CookieSessionUserHandler(AuthBase):
 
         # API からゲストトークンを取得する
         # ref: https://github.com/fa0311/TwitterFrontendFlow/blob/master/TwitterFrontendFlow/TwitterFrontendFlow.py#L26-L36
-        guest_token_response = self._session.post('https://api.twitter.com/1.1/guest/activate.json', headers=headers)
+        guest_token_response = self._session.post('https://api.x.com/1.1/guest/activate.json', headers=headers)
         if guest_token_response.status_code != 200:
             raise self._get_tweepy_exception(guest_token_response)
         try:
@@ -421,7 +426,7 @@ class CookieSessionUserHandler(AuthBase):
 
     def _get_ui_metrics(self, js_inst: str) -> Dict[str, Any]:
         """
-        https://twitter.com/i/js_inst?c_name=ui_metrics から出力される難読化された JavaScript から ui_metrics を取得する
+        https://x.com/i/js_inst?c_name=ui_metrics から出力される難読化された JavaScript から ui_metrics を取得する
         ref: https://github.com/hfthair/TweetScraper/blob/master/TweetScraper/spiders/following.py#L50-L94
 
         Args:
@@ -524,22 +529,22 @@ class CookieSessionUserHandler(AuthBase):
         # Cookie をクリア
         self._session.cookies.clear()
 
-        # 一度 https://twitter.com/ にアクセスして Cookie をセットさせる
+        # 一度 https://x.com/ にアクセスして Cookie をセットさせる
         ## 取得した HTML はゲストトークンを取得するために使う
-        html_response = self._session.get('https://twitter.com/i/flow/login', headers=self._html_headers)
+        html_response = self._session.get('https://x.com/i/flow/login', headers=self._html_headers)
         if html_response.status_code != 200:
             raise self._get_tweepy_exception(html_response)
 
         # CSRF トークンを生成し、"ct0" としてセッションの Cookie に保存
         ## 同時に認証フロー API 用の HTTP リクエストヘッダーにもセット ("ct0" と "x-csrf-token" は同じ値になる)
         csrf_token = self._generate_csrf_token()
-        self._session.cookies.set('ct0', csrf_token, domain='.twitter.com')
+        self._session.cookies.set('ct0', csrf_token, domain='.x.com')
         self._auth_flow_api_headers['x-csrf-token'] = csrf_token
 
         # まだ取得できていない場合のみ、ゲストトークンを取得し、"gt" としてセッションの Cookie に保存
         if self._session.cookies.get('gt', default=None) is None:
             guest_token = self._get_guest_token()
-            self._session.cookies.set('gt', guest_token, domain='.twitter.com')
+            self._session.cookies.set('gt', guest_token, domain='.x.com')
 
         ## ゲストトークンを認証フロー API 用の HTTP リクエストヘッダーにもセット ("gt" と "x-guest-token" は同じ値になる)
         self._auth_flow_api_headers['x-guest-token'] = self._session.cookies.get('gt')
@@ -549,12 +554,12 @@ class CookieSessionUserHandler(AuthBase):
         self._session.headers.update(self._auth_flow_api_headers)
 
         # 極力公式の Twitter Web App に偽装するためのダミーリクエスト
-        self._session.get('https://api.twitter.com/1.1/hashflags.json')
+        self._session.get('https://api.x.com/1.1/hashflags.json')
 
-        # https://api.twitter.com/1.1/onboarding/task.json?task=login に POST して認証フローを開始
+        # https://api.x.com/1.1/onboarding/task.json?task=login に POST して認証フローを開始
         ## 認証フローを開始するには、Cookie に "ct0" と "gt" がセットされている必要がある
-        ## 2024年4月時点の Twitter Web App が送信する JSON パラメータを模倣している
-        flow_01_response = self._session.post('https://api.twitter.com/1.1/onboarding/task.json?flow_name=login', json={
+        ## 2024年5月時点の Twitter Web App が送信する JSON パラメータを模倣している
+        flow_01_response = self._session.post('https://api.x.com/1.1/onboarding/task.json?flow_name=login', json={
             'input_flow_data': {
                 'flow_context': {
                     'debug_overrides': {},
@@ -611,7 +616,9 @@ class CookieSessionUserHandler(AuthBase):
             raise self._get_tweepy_exception(flow_01_response)
 
         # js_inst (難読化された JavaScript で、これの実行結果を認証フローに送信する必要があるらしい) を取得
-        js_inst_response = self._session.get('https://twitter.com/i/js_inst?c_name=ui_metrics', headers=self._js_headers)
+        ## 2024/05/18 時点の Twitter Web App では js_inst のみ x.com ではなく twitter.com から取得されているが、
+        ## 将来的なことを考慮しあえて x.com から取得している
+        js_inst_response = self._session.get('https://x.com/i/js_inst?c_name=ui_metrics', headers=self._js_headers)
         if js_inst_response.status_code != 200:
             raise tweepy.TweepyException('Failed to get js_inst')
 
@@ -619,7 +626,7 @@ class CookieSessionUserHandler(AuthBase):
         ui_metrics = self._get_ui_metrics(js_inst_response.text)
 
         # 取得した ui_metrics を認証フローに送信
-        flow_02_response = self._session.post('https://api.twitter.com/1.1/onboarding/task.json', json={
+        flow_02_response = self._session.post('https://api.x.com/1.1/onboarding/task.json', json={
             'flow_token': get_flow_token(flow_01_response),
             'subtask_inputs': [
                 {
@@ -635,13 +642,13 @@ class CookieSessionUserHandler(AuthBase):
             raise self._get_tweepy_exception(flow_02_response)
 
         # 極力公式の Twitter Web App に偽装するためのダミーリクエスト
-        self._session.post('https://api.twitter.com/1.1/onboarding/sso_init.json', json={'provider': 'apple'})
+        self._session.post('https://api.x.com/1.1/onboarding/sso_init.json', json={'provider': 'apple'})
 
         # 怪しまれないように、2秒～4秒の間にランダムな時間待機
         time.sleep(random.uniform(2.0, 4.0))
 
         # スクリーンネームを認証フローに送信
-        flow_03_response = self._session.post('https://api.twitter.com/1.1/onboarding/task.json', json={
+        flow_03_response = self._session.post('https://api.x.com/1.1/onboarding/task.json', json={
             'flow_token': get_flow_token(flow_02_response),
             'subtask_inputs': [
                 {
@@ -669,7 +676,7 @@ class CookieSessionUserHandler(AuthBase):
         time.sleep(random.uniform(2.0, 4.0))
 
         # パスワードを認証フローに送信
-        flow_04_response = self._session.post('https://api.twitter.com/1.1/onboarding/task.json', json={
+        flow_04_response = self._session.post('https://api.x.com/1.1/onboarding/task.json', json={
             'flow_token': get_flow_token(flow_03_response),
             'subtask_inputs': [
                 {
@@ -690,7 +697,7 @@ class CookieSessionUserHandler(AuthBase):
 
         # 最後におまじないを認証フローに送信 (アカウント重複チェック…？)
         ## このリクエストで、Cookie に auth_token がセットされる
-        flow_05_response = self._session.post('https://api.twitter.com/1.1/onboarding/task.json', json={
+        flow_05_response = self._session.post('https://api.x.com/1.1/onboarding/task.json', json={
             'flow_token': get_flow_token(flow_04_response),
             'subtask_inputs': [
                 {
@@ -707,7 +714,7 @@ class CookieSessionUserHandler(AuthBase):
         # 最後の最後にファイナライズを行う
         ## たぶんなくても動くけど、念のため
         ## このタイミングで Cookie の "ct0" 値 (CSRF トークン) がクライアント側で生成したものから、サーバー側で生成したものに更新される
-        flow_06_response = self._session.post('https://api.twitter.com/1.1/onboarding/task.json', json={
+        flow_06_response = self._session.post('https://api.x.com/1.1/onboarding/task.json', json={
             'flow_token': get_flow_token(flow_05_response),
             'subtask_inputs': [],
         })
