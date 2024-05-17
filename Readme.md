@@ -26,9 +26,9 @@
 > **tweepy-authlib v1.4.1 以降では、より厳密に Twitter Web App からの HTTP リクエストに偽装したり、一部の Twitter API v1.1 に再びアクセスできるようになるなど、様々な改善が行われています！**  
 > 凍結やアカウントロックのリスクを下げるためにも、最新版の tweepy-authlib の利用をおすすめします。
 
-> [!IMPORTANT]
+> [!IMPORTANT]  
 > **tweepy-authlib v1.5.0 にて、twitter.com の x.com への移行に対応しました。**  
-> 2024/05/18 時点では api.twitter.com でも引き続きアクセスできますが、不審がられるリスクが上がるうえ、いつまでアクセスできるかも不透明なためです。
+> 2024/05/18 時点では api.twitter.com でも引き続きアクセスできますが、不審がられるリスクが上がるうえ、いつまでアクセスできるかも不透明なためです。  
 > これにより、`CookieSessionUserHandler.get_graphql_api_headers()` で返される Origin / Referer ヘッダーの値が `twitter.com` から `x.com` に変更されています。  
 > GraphQL API クライアントを自作されている場合は、更新と同時に GraphQL API クライアントのアクセス先 URL を `twitter.com/i/api/graphql` から `x.com/i/api/graphql` に変更することを推奨します。
 
