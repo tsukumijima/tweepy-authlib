@@ -27,9 +27,9 @@ class CookieSessionUserHandler(AuthBase):
     ref: https://github.com/fa0311/TwitterFrontendFlow/blob/master/TwitterFrontendFlow/TwitterFrontendFlow.py
     """
 
-    # User-Agent と Sec-CH-UA を Chrome 125 に偽装
-    USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
-    SEC_CH_UA = '"Chromium";v="125", "Google Chrome";v="125", "Not-A.Brand";v="99"'
+    # User-Agent と Sec-CH-UA を Chrome 127 に偽装
+    USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
+    SEC_CH_UA = '"Chromium";v="127", "Google Chrome";v="127", "Not-A.Brand";v="99"'
 
     # Twitter Web App (GraphQL API) の Bearer トークン
     TWITTER_WEB_APP_BEARER_TOKEN = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
