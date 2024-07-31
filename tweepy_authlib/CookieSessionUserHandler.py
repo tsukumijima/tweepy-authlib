@@ -280,6 +280,18 @@ class CookieSessionUserHandler(AuthBase):
         return self._session.cookies.get_dict()
 
 
+    def get_html_headers(self) -> Dict[str, str]:
+        """
+        Twitter Web App の HTML アクセス用の HTTP リクエストヘッダーを取得する
+        Cookie やトークン類の取得のために HTML ページに HTTP リクエストを送る際の利用を想定している
+
+        Returns:
+            Dict[str, str]: HTML アクセス用の HTTP リクエストヘッダー
+        """
+
+        return self._html_headers.copy()
+
+
     def get_graphql_api_headers(self, cross_origin: bool = False) -> Dict[str, str]:
         """
         GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダーを取得する
