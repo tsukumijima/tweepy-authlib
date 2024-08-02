@@ -29,7 +29,7 @@ class CookieSessionUserHandler(AuthBase):
 
     # User-Agent と Sec-CH-UA を Chrome 127 に偽装
     USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36'
-    SEC_CH_UA = '"Chromium";v="127", "Google Chrome";v="127", "Not-A.Brand";v="99"'
+    SEC_CH_UA = '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"'
 
     # Twitter Web App (GraphQL API) の Bearer トークン
     TWITTER_WEB_APP_BEARER_TOKEN = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
@@ -94,6 +94,7 @@ class CookieSessionUserHandler(AuthBase):
         self._js_headers['referer'] = 'https://x.com/'
         self._js_headers['sec-fetch-dest'] = 'script'
         self._js_headers['sec-fetch-mode'] = 'no-cors'
+        self._js_headers['sec-fetch-site'] = 'cross-site'
         del self._js_headers['sec-fetch-user']
 
         # 認証フロー API アクセス時の HTTP リクエストヘッダー
@@ -292,16 +293,23 @@ class CookieSessionUserHandler(AuthBase):
         return self._html_headers.copy()
 
 
-    def get_js_headers(self) -> Dict[str, str]:
+    def get_js_headers(self, cross_origin: bool = False) -> Dict[str, str]:
         """
         Twitter Web App の JavaScript アクセス用の HTTP リクエストヘッダーを取得する
         Challenge 用コードの取得のために JavaScript ファイルに HTTP リクエストを送る際の利用を想定している
+        cross_origin=True を指定すると、例えば https://abs.twimg.com/ 以下にある JavaScript ファイルを取得する際のヘッダーを取得できる
+
+        Args:
+            cross_origin (bool, optional): x.com 以外のオリジンに送信する HTTP リクエストヘッダーかどうか. Defaults to False.
 
         Returns:
             Dict[str, str]: JavaScript アクセス用の HTTP リクエストヘッダー
         """
 
-        return self._js_headers.copy()
+        headers = self._js_headers.copy()
+        if cross_origin is True:
+            headers['sec-fetch-mode'] = 'cors'
+        return headers
 
 
     def get_graphql_api_headers(self, cross_origin: bool = False) -> Dict[str, str]:
