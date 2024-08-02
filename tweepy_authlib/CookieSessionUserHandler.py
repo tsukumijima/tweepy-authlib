@@ -207,7 +207,7 @@ class CookieSessionUserHandler(AuthBase):
         # Twitter API v1.1 の一部 API には旧 TweetDeck 用の Bearer トークンでないとアクセスできないため、
         # 該当の API のみ旧 TweetDeck 用の Bearer トークンに差し替える
         # それ以外の API ではそのまま Twitter Web App の Bearer トークンを使い続けることで、不審判定される可能性を下げる
-        ## OldTweetDeck の interception.js に記載の API のうち、明示的に PUBLIC_TOKEN[1] が設定されている API が対象
+        ## OldTweetDeck の interception.js に記載の API のうち、明示的に PUBLIC_TOKENS[1] が設定されている API が対象
         ## ref: https://github.com/dimdenGD/OldTweetDeck/blob/main/src/interception.js
         TWEETDECK_BEARER_TOKEN_REQUIRED_APIS = [
             '/1.1/statuses/home_timeline.json',
@@ -290,6 +290,18 @@ class CookieSessionUserHandler(AuthBase):
         """
 
         return self._html_headers.copy()
+
+
+    def get_js_headers(self) -> Dict[str, str]:
+        """
+        Twitter Web App の JavaScript アクセス用の HTTP リクエストヘッダーを取得する
+        Challenge 用コードの取得のために JavaScript ファイルに HTTP リクエストを送る際の利用を想定している
+
+        Returns:
+            Dict[str, str]: JavaScript アクセス用の HTTP リクエストヘッダー
+        """
+
+        return self._js_headers.copy()
 
 
     def get_graphql_api_headers(self, cross_origin: bool = False) -> Dict[str, str]:
