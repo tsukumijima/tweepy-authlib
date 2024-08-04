@@ -221,8 +221,12 @@ class CookieSessionUserHandler(AuthBase):
         if any(api_url in request.url for api_url in TWEETDECK_BEARER_TOKEN_REQUIRED_APIS):
             request.headers['authorization'] = self.TWEETDECK_BEARER_TOKEN
 
-        # upload.twitter.com or upload.x.com 以下の API のみ、Twitter Web App の挙動に合わせいくつかのヘッダーを削除する
+        # upload.twitter.com or upload.x.com 以下の API のみ、Twitter Web App の挙動に合わせいくつかのヘッダーを追加削除する
         if 'upload.twitter.com' in request.url or 'upload.x.com' in request.url:
+            # x.com から見て upload.x.com の API リクエストはクロスオリジンになるため、Origin と Referer を追加する
+            request.headers['origin'] = 'https://x.com'
+            request.headers['referer'] = 'https://x.com/'
+            # 以下のヘッダーは upload.x.com への API リクエストではなぜか付与されていない
             request.headers.pop('x-client-transaction-id', None)  # 未実装だが将来的に実装した時のため
             request.headers.pop('x-twitter-active-user', None)
             request.headers.pop('x-twitter-client-language', None)
