@@ -217,6 +217,7 @@ class CookieSessionUserHandler(AuthBase):
             '/1.1/statuses/mentions_timeline.json',
             '/1.1/favorites/',
             '/1.1/collections/',
+            '/1.1/users/show.json',
         ]
         if any(api_url in request.url for api_url in TWEETDECK_BEARER_TOKEN_REQUIRED_APIS):
             request.headers['authorization'] = self.TWEETDECK_BEARER_TOKEN
