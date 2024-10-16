@@ -556,11 +556,24 @@ class CookieSessionUserHandler(AuthBase):
         def get_flow_token(response: requests.Response) -> str:
             try:
                 data = response.json()
-            except ValueError:
+            except Exception:
                 pass
             else:
                 if response.status_code < 400:
                     return data['flow_token']
+            raise self._get_tweepy_exception(response)
+
+        def get_excepted_subtask(response: requests.Response, subtask_id: str) -> Dict[str, Any]:
+            try:
+                data = response.json()
+            except Exception:
+                pass
+            else:
+                if response.status_code < 400:
+                    for subtask in data['subtasks']:
+                        if subtask['subtask_id'] == subtask_id:
+                            return subtask
+                    raise tweepy.TweepyException(f'{subtask_id} not found in response')
             raise self._get_tweepy_exception(response)
 
         # Cookie をクリア
@@ -652,10 +665,13 @@ class CookieSessionUserHandler(AuthBase):
         if flow_01_response.status_code != 200:
             raise self._get_tweepy_exception(flow_01_response)
 
-        # js_inst (難読化された JavaScript で、これの実行結果を認証フローに送信する必要があるらしい) を取得
-        ## 2024/05/18 時点の Twitter Web App では js_inst のみ x.com ではなく twitter.com から取得されているが、
-        ## 将来的なことを考慮しあえて x.com から取得している
-        js_inst_response = self._session.get('https://x.com/i/js_inst?c_name=ui_metrics', headers=self._js_headers)
+        # flow_01 のレスポンスから js_inst の URL を取得
+        # subtasks の中に LoginJsInstrumentationSubtask が含まれていない場合、例外を送出する
+        js_inst_subtask = get_excepted_subtask(flow_01_response, 'LoginJsInstrumentationSubtask')
+        js_inst_url = js_inst_subtask['js_instrumentation']['url']
+
+        # js_inst (難読化された JavaScript で、これの実行結果を認証フローに送信する必要がある) を取得
+        js_inst_response = self._session.get(js_inst_url, headers=self._js_headers)
         if js_inst_response.status_code != 200:
             raise tweepy.TweepyException('Failed to get js_inst')
 
@@ -677,6 +693,9 @@ class CookieSessionUserHandler(AuthBase):
         })
         if flow_02_response.status_code != 200:
             raise self._get_tweepy_exception(flow_02_response)
+
+        # subtasks の中に LoginEnterUserIdentifierSSO が含まれていない場合、例外を送出する
+        get_excepted_subtask(flow_02_response, 'LoginEnterUserIdentifierSSO')
 
         # 極力公式の Twitter Web App に偽装するためのダミーリクエスト
         self._session.post('https://api.x.com/1.1/onboarding/sso_init.json', json={'provider': 'apple'})
@@ -709,6 +728,9 @@ class CookieSessionUserHandler(AuthBase):
         if flow_03_response.status_code != 200:
             raise self._get_tweepy_exception(flow_03_response)
 
+        # subtasks の中に LoginEnterPassword が含まれていない場合、例外を送出する
+        get_excepted_subtask(flow_03_response, 'LoginEnterPassword')
+
         # 怪しまれないように、2秒～4秒の間にランダムな時間待機
         time.sleep(random.uniform(2.0, 4.0))
 
@@ -732,31 +754,18 @@ class CookieSessionUserHandler(AuthBase):
         if flow_04_response.json()['status'] != 'success':
             raise tweepy.TweepyException(f'Failed to login (status: {flow_04_response.json()["status"]})')
 
-        # 最後におまじないを認証フローに送信 (アカウント重複チェック…？)
+        # subtasks の中に SuccessExit が含まれていない場合、例外を送出する
+        get_excepted_subtask(flow_04_response, 'SuccessExit')
+
+        # 最後の最後にファイナライズを行う
         ## このリクエストで、Cookie に auth_token がセットされる
+        ## このタイミングで Cookie の "ct0" 値 (CSRF トークン) がクライアント側で生成したものから、サーバー側で生成したものに更新される
         flow_05_response = self._session.post('https://api.x.com/1.1/onboarding/task.json', json={
             'flow_token': get_flow_token(flow_04_response),
-            'subtask_inputs': [
-                {
-                    'subtask_id': 'AccountDuplicationCheck',
-                    'check_logged_in_account': {
-                        'link': 'AccountDuplicationCheck_false',
-                    }
-                },
-            ]
+            'subtask_inputs': [],
         })
         if flow_05_response.status_code != 200:
             raise self._get_tweepy_exception(flow_05_response)
-
-        # 最後の最後にファイナライズを行う
-        ## たぶんなくても動くけど、念のため
-        ## このタイミングで Cookie の "ct0" 値 (CSRF トークン) がクライアント側で生成したものから、サーバー側で生成したものに更新される
-        flow_06_response = self._session.post('https://api.x.com/1.1/onboarding/task.json', json={
-            'flow_token': get_flow_token(flow_05_response),
-            'subtask_inputs': [],
-        })
-        if flow_06_response.status_code != 200:
-            raise self._get_tweepy_exception(flow_06_response)
 
         # ここまで来たら、ログインに成功しているはず
         ## Cookie にはログインに必要な情報が入っている
