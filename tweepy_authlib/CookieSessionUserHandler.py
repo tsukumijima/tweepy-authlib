@@ -178,7 +178,7 @@ class CookieSessionUserHandler(AuthBase):
         ## 逆に怪しまれる可能性があるため GraphQL API 用ヘッダーに変更した
         ## cross_origin=True を指定して、x.com から api.x.com にクロスオリジンリクエストを送信した際のヘッダーを模倣する
         self._session.headers.clear()
-        self._session.headers.update(self.get_graphql_api_headers(cross_origin=True))
+        self._session.headers.update(self.get_graphql_api_headers(cross_origin=True))  # type: ignore
 
 
     def __call__(self, request: PreparedRequest) -> PreparedRequest:
@@ -318,7 +318,7 @@ class CookieSessionUserHandler(AuthBase):
         return headers
 
 
-    def get_graphql_api_headers(self, cross_origin: bool = False) -> Dict[str, str]:
+    def get_graphql_api_headers(self, cross_origin: bool = False) -> Dict[str, Optional[str]]:
         """
         GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダーを取得する
         このリクエストヘッダーを使い独自に API リクエストを行う際は、
@@ -371,13 +371,13 @@ class CookieSessionUserHandler(AuthBase):
         # 基本固定値のようなので不要だが、念のためステータスチェック
         try:
             status = logout_api_response.json()['status']
-        except:
+        except Exception:
             raise tweepy.TweepyException('Failed to logout (failed to parse response)')
         if status != 'ok':
             raise tweepy.TweepyException(f'Failed to logout (status: {status})')
 
 
-    def _on_response_received(self, response: requests.Response, *args, **kwargs) -> None:
+    def _on_response_received(self, response: requests.Response, *args: Any, **kwargs: Any) -> None:
         """
         レスポンスが返ってきた際に自動的に CSRF トークンを更新するコールバック
 
@@ -456,7 +456,7 @@ class CookieSessionUserHandler(AuthBase):
             raise self._get_tweepy_exception(guest_token_response)
         try:
             guest_token = guest_token_response.json()['guest_token']
-        except:
+        except Exception:
             raise tweepy.TweepyException('Failed to get guest token')
 
         return guest_token
@@ -602,7 +602,7 @@ class CookieSessionUserHandler(AuthBase):
 
         # これ以降は基本認証フロー API へのアクセスしか行わないので、セッションのヘッダーを認証フロー API 用のものに差し替える
         self._session.headers.clear()
-        self._session.headers.update(self._auth_flow_api_headers)
+        self._session.headers.update(self._auth_flow_api_headers)  # type: ignore
 
         # 極力公式の Twitter Web App に偽装するためのダミーリクエスト
         self._session.get('https://api.x.com/1.1/hashflags.json')
