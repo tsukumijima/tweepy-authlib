@@ -26,6 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "Brotli>=1.0.9",
+    "curl-cffi>=0.13.0",
     "js2py>=0.74",
     "tweepy>=4.12.1",
 ]
@@ -46,8 +47,10 @@ dependencies = [
     "pytest-dotenv",
 ]
 [tool.hatch.envs.default.scripts]
+# Usage: `hatch run cov/no-cov`
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=tweepy_authlib --cov=tests {args}"
 no-cov = "cov --no-cov {args}"
+# Usage: `hatch run test`
 test = "python tests/test_main.py"
 
 [[tool.hatch.envs.test.matrix]]

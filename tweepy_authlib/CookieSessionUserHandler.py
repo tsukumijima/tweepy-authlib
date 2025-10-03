@@ -1,13 +1,16 @@
 import binascii
+import copy
 import json
 import random
 import re
 import time
-from typing import Any, Optional, TypeVar, cast
+from io import BytesIO
+from typing import Any, Optional, TypeVar, Union, cast
 
 import js2py
 import requests
 import tweepy
+from curl_cffi import requests as curl_requests
 from js2py.base import JsObjectWrapper
 from requests.auth import AuthBase
 from requests.cookies import RequestsCookieJar
@@ -150,11 +153,14 @@ class CookieSessionUserHandler(AuthBase):
         # Cookie ログイン用のセッションを作成
         ## 実際の Twitter API へのリクエストには tweepy.API 側で作成されたセッションが利用される
         ## その際、__call__() で tweepy.API で作成されたセッションのリクエストヘッダーと Cookie を上書きしている
-        self._session = requests.Session()
-
-        # API からレスポンスが返ってきた際に自動で CSRF トークンを更新する
-        ## 認証に成功したタイミングで、Cookie の "ct0" 値 (CSRF トークン) がクライアント側で生成したものから、サーバー側で生成したものに更新される
-        self._session.hooks['response'].append(self._on_response_received)
+        self._session = curl_requests.Session(
+            ## リダイレクトを追跡する
+            allow_redirects=True,
+            ## curl-cffi に実装されている中で一番新しい Chrome バージョンに偽装する
+            impersonate='chrome',
+            ## 可能な限り Chrome からのリクエストに偽装するため、明示的に HTTP/2 で接続する
+            http_version='v2',
+        )
 
         # Cookie が指定されている場合は、それをセッションにセット (再ログインを省略する)
         if cookies is not None:
@@ -221,13 +227,13 @@ class CookieSessionUserHandler(AuthBase):
         ## ref: https://github.com/dimdenGD/OldTweetDeck/blob/main/src/interception.js
         TWEETDECK_BEARER_TOKEN_REQUIRED_APIS = [
             '/1.1/statuses/home_timeline.json',
-            '/1.1/lists/statuses.json',
             '/1.1/activity/about_me.json',
             '/1.1/statuses/mentions_timeline.json',
             '/1.1/favorites/',
             '/1.1/collections/',
             '/1.1/users/show.json',
             '/1.1/account/verify_credentials.json',
+            '/1.1/translations/show.json',
         ]
         if any(api_url in request.url for api_url in TWEETDECK_BEARER_TOKEN_REQUIRED_APIS):
             request.headers['authorization'] = self.TWEETDECK_BEARER_TOKEN
@@ -279,7 +285,11 @@ class CookieSessionUserHandler(AuthBase):
             RequestsCookieJar: Cookie
         """
 
-        return self._session.cookies
+        # curl_cffi.requests.Session.cookies.jar が持つ CookieJar を RequestsCookieJar に変換
+        jar = RequestsCookieJar()
+        for cookie in self._session.cookies.jar:
+            jar.set_cookie(copy.copy(cookie))
+        return jar
 
     def get_cookies_as_dict(self) -> dict[str, str]:
         """
@@ -364,8 +374,9 @@ class CookieSessionUserHandler(AuthBase):
 
         # ログアウト API にログアウトすることを伝える
         ## この API を実行すると、サーバー側でセッションが切断され、今まで持っていたほとんどの Cookie が消去される
-        logout_api_response = self._session.post(
-            'https://api.x.com/1.1/account/logout.json',
+        logout_api_response = self._session_request(
+            method='POST',
+            url='https://api.x.com/1.1/account/logout.json',
             headers=logout_headers,
             data={
                 'redirectAfterLogout': 'https://x.com/account/switch',
@@ -382,7 +393,36 @@ class CookieSessionUserHandler(AuthBase):
         if status != 'ok':
             raise tweepy.TweepyException(f'Failed to logout (status: {status})')
 
-    def _on_response_received(self, response: requests.Response, *args: Any, **kwargs: Any) -> None:
+    def _session_request(
+        self,
+        method: curl_requests.session.HttpMethod,
+        url: str,
+        headers: Optional[curl_requests.session.HeaderTypes] = None,
+        data: Optional[Union[dict[str, str], list[tuple[Any, ...]], str, BytesIO, bytes]] = None,
+        json: Optional[Union[dict[str, Any], list[Any]]] = None,
+    ) -> curl_requests.Response:
+        """
+        curl-cffi セッションでリクエストを送り、API からレスポンスが返ってきた際に自動で CSRF トークンを更新する
+        認証に成功したタイミングで、Cookie の "ct0" 値 (CSRF トークン) がクライアント側で生成したものから、サーバー側で生成したものに更新される
+
+        Args:
+            method (curl_requests.session.HttpMethod): リクエストメソッド
+            url (str): リクエスト URL
+            headers (Optional[curl_requests.session.HeaderTypes], optional): リクエストヘッダー. Defaults to None.
+            data (Optional[Union[dict[str, str], list[tuple[Any, ...]], str, BytesIO, bytes]], optional): リクエストボディ. Defaults to None.
+            json (Optional[Union[dict[str, Any], list[Any]]], optional): リクエストボディ. Defaults to None.
+
+        Returns:
+            curl_requests.Response: レスポンス
+        """
+
+        response = self._session.request(method, url, headers=headers, data=data, json=json)
+        self._on_response_received(response)
+        return response
+
+    def _on_response_received(
+        self, response: Union[curl_requests.Response, requests.Response], *args: Any, **kwargs: Any
+    ) -> None:
         """
         レスポンスが返ってきた際に自動的に CSRF トークンを更新するコールバック
 
@@ -398,7 +438,7 @@ class CookieSessionUserHandler(AuthBase):
             self._graphql_api_headers['x-csrf-token'] = csrf_token
             self._session.headers['x-csrf-token'] = csrf_token
 
-    def _get_tweepy_exception(self, response: requests.Response) -> tweepy.TweepyException:
+    def _get_tweepy_exception(self, response: curl_requests.Response) -> tweepy.TweepyException:
         """
         TweepyException を継承した、ステータスコードと一致する例外クラスを取得する
 
@@ -453,7 +493,11 @@ class CookieSessionUserHandler(AuthBase):
 
         # API からゲストトークンを取得する
         # ref: https://github.com/fa0311/TwitterFrontendFlow/blob/master/TwitterFrontendFlow/TwitterFrontendFlow.py#L26-L36
-        guest_token_response = self._session.post('https://api.x.com/1.1/guest/activate.json', headers=headers)
+        guest_token_response = self._session_request(
+            method='POST',
+            url='https://api.x.com/1.1/guest/activate.json',
+            headers=headers,
+        )
         if guest_token_response.status_code != 200:
             raise self._get_tweepy_exception(guest_token_response)
         try:
@@ -556,7 +600,7 @@ class CookieSessionUserHandler(AuthBase):
             tweepy.TweepyException: 認証フローの途中でエラーが発生し、ログインに失敗した
         """
 
-        def get_flow_token(response: requests.Response) -> str:
+        def get_flow_token(response: curl_requests.Response) -> str:
             try:
                 data = response.json()
             except Exception:
@@ -566,7 +610,7 @@ class CookieSessionUserHandler(AuthBase):
                     return data['flow_token']
             raise self._get_tweepy_exception(response)
 
-        def get_excepted_subtask(response: requests.Response, subtask_id: str) -> dict[str, Any]:
+        def get_excepted_subtask(response: curl_requests.Response, subtask_id: str) -> dict[str, Any]:
             try:
                 data = response.json()
             except Exception:
@@ -584,7 +628,11 @@ class CookieSessionUserHandler(AuthBase):
 
         # 一度 https://x.com/ にアクセスして Cookie をセットさせる
         ## 取得した HTML はゲストトークンを取得するために使う
-        html_response = self._session.get('https://x.com/i/flow/login', headers=self._html_headers)
+        html_response = self._session_request(
+            method='GET',
+            url='https://x.com/i/flow/login',
+            headers=self._html_headers,
+        )
         if html_response.status_code != 200:
             raise self._get_tweepy_exception(html_response)
 
@@ -607,13 +655,17 @@ class CookieSessionUserHandler(AuthBase):
         self._session.headers.update(self._auth_flow_api_headers)  # type: ignore
 
         # 極力公式の Twitter Web App に偽装するためのダミーリクエスト
-        self._session.get('https://api.x.com/1.1/hashflags.json')
+        self._session_request(
+            method='GET',
+            url='https://api.x.com/1.1/hashflags.json',
+        )
 
         # https://api.x.com/1.1/onboarding/task.json?task=login に POST して認証フローを開始
         ## 認証フローを開始するには、Cookie に "ct0" と "gt" がセットされている必要がある
         ## 2024年5月時点の Twitter Web App が送信する JSON パラメータを模倣している
-        flow_01_response = self._session.post(
-            'https://api.x.com/1.1/onboarding/task.json?flow_name=login',
+        flow_01_response = self._session_request(
+            method='POST',
+            url='https://api.x.com/1.1/onboarding/task.json?flow_name=login',
             json={
                 'input_flow_data': {
                     'flow_context': {
@@ -677,7 +729,11 @@ class CookieSessionUserHandler(AuthBase):
         js_inst_url = js_inst_subtask['js_instrumentation']['url']
 
         # js_inst (難読化された JavaScript で、これの実行結果を認証フローに送信する必要がある) を取得
-        js_inst_response = self._session.get(js_inst_url, headers=self._js_headers)
+        js_inst_response = self._session_request(
+            method='GET',
+            url=js_inst_url,
+            headers=self._js_headers,
+        )
         if js_inst_response.status_code != 200:
             raise tweepy.TweepyException('Failed to get js_inst')
 
@@ -685,8 +741,9 @@ class CookieSessionUserHandler(AuthBase):
         ui_metrics = self._get_ui_metrics(js_inst_response.text)
 
         # 取得した ui_metrics を認証フローに送信
-        flow_02_response = self._session.post(
-            'https://api.x.com/1.1/onboarding/task.json',
+        flow_02_response = self._session_request(
+            method='POST',
+            url='https://api.x.com/1.1/onboarding/task.json',
             json={
                 'flow_token': get_flow_token(flow_01_response),
                 'subtask_inputs': [
@@ -707,14 +764,19 @@ class CookieSessionUserHandler(AuthBase):
         get_excepted_subtask(flow_02_response, 'LoginEnterUserIdentifierSSO')
 
         # 極力公式の Twitter Web App に偽装するためのダミーリクエスト
-        self._session.post('https://api.x.com/1.1/onboarding/sso_init.json', json={'provider': 'apple'})
+        self._session_request(
+            method='POST',
+            url='https://api.x.com/1.1/onboarding/sso_init.json',
+            json={'provider': 'apple'},
+        )
 
         # 怪しまれないように、2秒～4秒の間にランダムな時間待機
         time.sleep(random.uniform(2.0, 4.0))
 
         # スクリーンネームを認証フローに送信
-        flow_03_response = self._session.post(
-            'https://api.x.com/1.1/onboarding/task.json',
+        flow_03_response = self._session_request(
+            method='POST',
+            url='https://api.x.com/1.1/onboarding/task.json',
             json={
                 'flow_token': get_flow_token(flow_02_response),
                 'subtask_inputs': [
@@ -747,8 +809,9 @@ class CookieSessionUserHandler(AuthBase):
         time.sleep(random.uniform(2.0, 4.0))
 
         # パスワードを認証フローに送信
-        flow_04_response = self._session.post(
-            'https://api.x.com/1.1/onboarding/task.json',
+        flow_04_response = self._session_request(
+            method='POST',
+            url='https://api.x.com/1.1/onboarding/task.json',
             json={
                 'flow_token': get_flow_token(flow_03_response),
                 'subtask_inputs': [
@@ -775,8 +838,9 @@ class CookieSessionUserHandler(AuthBase):
         # 最後の最後にファイナライズを行う
         ## このリクエストで、Cookie に auth_token がセットされる
         ## このタイミングで Cookie の "ct0" 値 (CSRF トークン) がクライアント側で生成したものから、サーバー側で生成したものに更新される
-        flow_05_response = self._session.post(
-            'https://api.x.com/1.1/onboarding/task.json',
+        flow_05_response = self._session_request(
+            method='POST',
+            url='https://api.x.com/1.1/onboarding/task.json',
             json={
                 'flow_token': get_flow_token(flow_04_response),
                 'subtask_inputs': [],
