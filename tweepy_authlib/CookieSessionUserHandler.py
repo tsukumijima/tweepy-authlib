@@ -1,20 +1,21 @@
-
 import binascii
-import js2py
 import json
 import random
 import re
-import requests
 import time
+from typing import Any, Optional, TypeVar, cast
+
+import js2py
+import requests
 import tweepy
 from js2py.base import JsObjectWrapper
 from requests.auth import AuthBase
 from requests.cookies import RequestsCookieJar
 from requests.models import PreparedRequest
-from typing import Any, cast, Dict, Optional, TypeVar
 
 
-Self = TypeVar("Self", bound="CookieSessionUserHandler")
+Self = TypeVar('Self', bound='CookieSessionUserHandler')
+
 
 class CookieSessionUserHandler(AuthBase):
     """
@@ -37,8 +38,12 @@ class CookieSessionUserHandler(AuthBase):
     # 旧 TweetDeck (Twitter API v1.1) の Bearer トークン
     TWEETDECK_BEARER_TOKEN = 'Bearer AAAAAAAAAAAAAAAAAAAAAFQODgEAAAAAVHTp76lzh3rFzcHbmHVvQxYYpTw%3DckAlMINMjmCwxUcaXbAN4XqJVdgMJaHqNOFgPMK0zN1qLqLQCF'
 
-
-    def __init__(self, cookies: Optional[RequestsCookieJar] = None, screen_name: Optional[str] = None, password: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        cookies: Optional[RequestsCookieJar] = None,
+        screen_name: Optional[str] = None,
+        password: Optional[str] = None,
+    ) -> None:
         """
         CookieSessionUserHandler を初期化する
         cookies と screen_name, password のどちらかを指定する必要がある
@@ -161,7 +166,10 @@ class CookieSessionUserHandler(AuthBase):
 
         # Cookie から auth_token または ct0 が取得できなかった場合
         ## auth_token と ct0 はいずれも認証に最低限必要な Cookie のため、取得できなかった場合は認証に失敗したものとみなす
-        if self._session.cookies.get('auth_token', default=None) is None or self._session.cookies.get('ct0', default=None) is None:
+        if (
+            self._session.cookies.get('auth_token', default=None) is None
+            or self._session.cookies.get('ct0', default=None) is None
+        ):
             raise tweepy.TweepyException('Failed to get auth_token or ct0 from Cookie')
 
         # Cookie の "gt" 値 (ゲストトークン) を認証フロー API 用ヘッダーにセット
@@ -181,7 +189,6 @@ class CookieSessionUserHandler(AuthBase):
         ## cross_origin=True を指定して、x.com から api.x.com にクロスオリジンリクエストを送信した際のヘッダーを模倣する
         self._session.headers.clear()
         self._session.headers.update(self.get_graphql_api_headers(cross_origin=True))  # type: ignore
-
 
     def __call__(self, request: PreparedRequest) -> PreparedRequest:
         """
@@ -249,7 +256,6 @@ class CookieSessionUserHandler(AuthBase):
         # 認証情報を追加した PreparedRequest オブジェクトを返す
         return request
 
-
     def apply_auth(self: Self) -> Self:
         """
         tweepy.API の初期化時に認証ハンドラーを適用するためのメソッド
@@ -264,7 +270,6 @@ class CookieSessionUserHandler(AuthBase):
 
         return self
 
-
     def get_cookies(self) -> RequestsCookieJar:
         """
         現在のログインセッションの Cookie を取得する
@@ -276,8 +281,7 @@ class CookieSessionUserHandler(AuthBase):
 
         return self._session.cookies
 
-
-    def get_cookies_as_dict(self) -> Dict[str, str]:
+    def get_cookies_as_dict(self) -> dict[str, str]:
         """
         現在のログインセッションの Cookie を dict として取得する
         返される dict を保存しておくことで、再ログインせずにセッションを継続できる
@@ -288,8 +292,7 @@ class CookieSessionUserHandler(AuthBase):
 
         return self._session.cookies.get_dict()
 
-
-    def get_html_headers(self) -> Dict[str, str]:
+    def get_html_headers(self) -> dict[str, str]:
         """
         Twitter Web App の HTML アクセス用の HTTP リクエストヘッダーを取得する
         Cookie やトークン類の取得のために HTML ページに HTTP リクエストを送る際の利用を想定している
@@ -300,8 +303,7 @@ class CookieSessionUserHandler(AuthBase):
 
         return self._html_headers.copy()
 
-
-    def get_js_headers(self, cross_origin: bool = False) -> Dict[str, str]:
+    def get_js_headers(self, cross_origin: bool = False) -> dict[str, str]:
         """
         Twitter Web App の JavaScript アクセス用の HTTP リクエストヘッダーを取得する
         Challenge 用コードの取得のために JavaScript ファイルに HTTP リクエストを送る際の利用を想定している
@@ -319,8 +321,7 @@ class CookieSessionUserHandler(AuthBase):
             headers['sec-fetch-mode'] = 'cors'
         return headers
 
-
-    def get_graphql_api_headers(self, cross_origin: bool = False) -> Dict[str, Optional[str]]:
+    def get_graphql_api_headers(self, cross_origin: bool = False) -> dict[str, Optional[str]]:
         """
         GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダーを取得する
         このリクエストヘッダーを使い独自に API リクエストを行う際は、
@@ -345,7 +346,6 @@ class CookieSessionUserHandler(AuthBase):
 
         return headers
 
-
     def logout(self) -> None:
         """
         ログアウト処理を行い、Twitter からセッションを切断する
@@ -364,9 +364,13 @@ class CookieSessionUserHandler(AuthBase):
 
         # ログアウト API にログアウトすることを伝える
         ## この API を実行すると、サーバー側でセッションが切断され、今まで持っていたほとんどの Cookie が消去される
-        logout_api_response = self._session.post('https://api.x.com/1.1/account/logout.json', headers=logout_headers, data={
-            'redirectAfterLogout': 'https://x.com/account/switch',
-        })
+        logout_api_response = self._session.post(
+            'https://api.x.com/1.1/account/logout.json',
+            headers=logout_headers,
+            data={
+                'redirectAfterLogout': 'https://x.com/account/switch',
+            },
+        )
         if logout_api_response.status_code != 200:
             raise self._get_tweepy_exception(logout_api_response)
 
@@ -377,7 +381,6 @@ class CookieSessionUserHandler(AuthBase):
             raise tweepy.TweepyException('Failed to logout (failed to parse response)')
         if status != 'ok':
             raise tweepy.TweepyException(f'Failed to logout (status: {status})')
-
 
     def _on_response_received(self, response: requests.Response, *args: Any, **kwargs: Any) -> None:
         """
@@ -394,7 +397,6 @@ class CookieSessionUserHandler(AuthBase):
             self._auth_flow_api_headers['x-csrf-token'] = csrf_token
             self._graphql_api_headers['x-csrf-token'] = csrf_token
             self._session.headers['x-csrf-token'] = csrf_token
-
 
     def _get_tweepy_exception(self, response: requests.Response) -> tweepy.TweepyException:
         """
@@ -422,7 +424,6 @@ class CookieSessionUserHandler(AuthBase):
         else:
             return tweepy.TweepyException(response)
 
-
     def _generate_csrf_token(self, size: int = 16) -> str:
         """
         Twitter の CSRF トークン (Cookie 内の "ct0" 値) を生成する
@@ -434,9 +435,8 @@ class CookieSessionUserHandler(AuthBase):
             str: 生成されたトークン
         """
 
-        data = random.getrandbits(size * 8).to_bytes(size, "big")
+        data = random.getrandbits(size * 8).to_bytes(size, 'big')
         return binascii.hexlify(data).decode()
-
 
     def _get_guest_token(self) -> str:
         """
@@ -463,8 +463,7 @@ class CookieSessionUserHandler(AuthBase):
 
         return guest_token
 
-
-    def _get_ui_metrics(self, js_inst: str) -> Dict[str, Any]:
+    def _get_ui_metrics(self, js_inst: str) -> dict[str, Any]:
         """
         https://x.com/i/js_inst?c_name=ui_metrics から出力される難読化された JavaScript から ui_metrics を取得する
         ref: https://github.com/hfthair/TweetScraper/blob/master/TweetScraper/spiders/following.py#L50-L94
@@ -478,7 +477,9 @@ class CookieSessionUserHandler(AuthBase):
 
         # 難読化された JavaScript の中から ui_metrics を取得する関数を抽出
         js_inst_function = js_inst.split('\n')[2]
-        js_inst_function_name = re.search(re.compile(r'function [a-zA-Z]+'), js_inst_function).group().replace('function ', '')  # type: ignore
+        js_inst_function_name = (
+            re.search(re.compile(r'function [a-zA-Z]+'), js_inst_function).group().replace('function ', '')  # type: ignore
+        )
 
         # 難読化された JavaScript を実行するために簡易的に DOM API をモックする
         ## とりあえず最低限必要そうなものだけ
@@ -543,8 +544,7 @@ class CookieSessionUserHandler(AuthBase):
 
         # ui_metrics を取得
         ui_metrics = cast(JsObjectWrapper, js_context.ui_metrics)
-        return cast(Dict[str, Any], ui_metrics.to_dict())
-
+        return cast(dict[str, Any], ui_metrics.to_dict())
 
     def _login(self) -> None:
         """
@@ -566,7 +566,7 @@ class CookieSessionUserHandler(AuthBase):
                     return data['flow_token']
             raise self._get_tweepy_exception(response)
 
-        def get_excepted_subtask(response: requests.Response, subtask_id: str) -> Dict[str, Any]:
+        def get_excepted_subtask(response: requests.Response, subtask_id: str) -> dict[str, Any]:
             try:
                 data = response.json()
             except Exception:
@@ -612,59 +612,62 @@ class CookieSessionUserHandler(AuthBase):
         # https://api.x.com/1.1/onboarding/task.json?task=login に POST して認証フローを開始
         ## 認証フローを開始するには、Cookie に "ct0" と "gt" がセットされている必要がある
         ## 2024年5月時点の Twitter Web App が送信する JSON パラメータを模倣している
-        flow_01_response = self._session.post('https://api.x.com/1.1/onboarding/task.json?flow_name=login', json={
-            'input_flow_data': {
-                'flow_context': {
-                    'debug_overrides': {},
-                    'start_location': {
-                        'location': 'manual_link',
+        flow_01_response = self._session.post(
+            'https://api.x.com/1.1/onboarding/task.json?flow_name=login',
+            json={
+                'input_flow_data': {
+                    'flow_context': {
+                        'debug_overrides': {},
+                        'start_location': {
+                            'location': 'manual_link',
+                        },
                     }
-                }
+                },
+                'subtask_versions': {
+                    'action_list': 2,
+                    'alert_dialog': 1,
+                    'app_download_cta': 1,
+                    'check_logged_in_account': 1,
+                    'choice_selection': 3,
+                    'contacts_live_sync_permission_prompt': 0,
+                    'cta': 7,
+                    'email_verification': 2,
+                    'end_flow': 1,
+                    'enter_date': 1,
+                    'enter_email': 2,
+                    'enter_password': 5,
+                    'enter_phone': 2,
+                    'enter_recaptcha': 1,
+                    'enter_text': 5,
+                    'enter_username': 2,
+                    'generic_urt': 3,
+                    'in_app_notification': 1,
+                    'interest_picker': 3,
+                    'js_instrumentation': 1,
+                    'menu_dialog': 1,
+                    'notifications_permission_prompt': 2,
+                    'open_account': 2,
+                    'open_home_timeline': 1,
+                    'open_link': 1,
+                    'phone_verification': 4,
+                    'privacy_options': 1,
+                    'security_key': 3,
+                    'select_avatar': 4,
+                    'select_banner': 2,
+                    'settings_list': 7,
+                    'show_code': 1,
+                    'sign_up': 2,
+                    'sign_up_review': 4,
+                    'tweet_selection_urt': 1,
+                    'update_users': 1,
+                    'upload_media': 1,
+                    'user_recommendations_list': 4,
+                    'user_recommendations_urt': 1,
+                    'wait_spinner': 3,
+                    'web_modal': 1,
+                },
             },
-            'subtask_versions': {
-                'action_list': 2,
-                'alert_dialog': 1,
-                'app_download_cta': 1,
-                'check_logged_in_account': 1,
-                'choice_selection': 3,
-                'contacts_live_sync_permission_prompt': 0,
-                'cta': 7,
-                'email_verification': 2,
-                'end_flow': 1,
-                'enter_date': 1,
-                'enter_email': 2,
-                'enter_password': 5,
-                'enter_phone': 2,
-                'enter_recaptcha': 1,
-                'enter_text': 5,
-                'enter_username': 2,
-                'generic_urt': 3,
-                'in_app_notification': 1,
-                'interest_picker': 3,
-                'js_instrumentation': 1,
-                'menu_dialog': 1,
-                'notifications_permission_prompt': 2,
-                'open_account': 2,
-                'open_home_timeline': 1,
-                'open_link': 1,
-                'phone_verification': 4,
-                'privacy_options': 1,
-                'security_key': 3,
-                'select_avatar': 4,
-                'select_banner': 2,
-                'settings_list': 7,
-                'show_code': 1,
-                'sign_up': 2,
-                'sign_up_review': 4,
-                'tweet_selection_urt': 1,
-                'update_users': 1,
-                'upload_media': 1,
-                'user_recommendations_list': 4,
-                'user_recommendations_urt': 1,
-                'wait_spinner': 3,
-                'web_modal': 1,
-            }
-        })
+        )
         if flow_01_response.status_code != 200:
             raise self._get_tweepy_exception(flow_01_response)
 
@@ -682,18 +685,21 @@ class CookieSessionUserHandler(AuthBase):
         ui_metrics = self._get_ui_metrics(js_inst_response.text)
 
         # 取得した ui_metrics を認証フローに送信
-        flow_02_response = self._session.post('https://api.x.com/1.1/onboarding/task.json', json={
-            'flow_token': get_flow_token(flow_01_response),
-            'subtask_inputs': [
-                {
-                    'subtask_id': 'LoginJsInstrumentationSubtask',
-                    'js_instrumentation': {
-                        'response': json.dumps(ui_metrics),
-                        'link': 'next_link',
-                    }
-                },
-            ]
-        })
+        flow_02_response = self._session.post(
+            'https://api.x.com/1.1/onboarding/task.json',
+            json={
+                'flow_token': get_flow_token(flow_01_response),
+                'subtask_inputs': [
+                    {
+                        'subtask_id': 'LoginJsInstrumentationSubtask',
+                        'js_instrumentation': {
+                            'response': json.dumps(ui_metrics),
+                            'link': 'next_link',
+                        },
+                    },
+                ],
+            },
+        )
         if flow_02_response.status_code != 200:
             raise self._get_tweepy_exception(flow_02_response)
 
@@ -707,27 +713,30 @@ class CookieSessionUserHandler(AuthBase):
         time.sleep(random.uniform(2.0, 4.0))
 
         # スクリーンネームを認証フローに送信
-        flow_03_response = self._session.post('https://api.x.com/1.1/onboarding/task.json', json={
-            'flow_token': get_flow_token(flow_02_response),
-            'subtask_inputs': [
-                {
-                    'subtask_id': 'LoginEnterUserIdentifierSSO',
-                    'settings_list': {
-                        'setting_responses': [
-                            {
-                                'key': 'user_identifier',
-                                'response_data': {
-                                    'text_data': {
-                                        'result': self.screen_name,
-                                    }
-                                }
-                            },
-                        ],
-                        'link': 'next_link',
-                    }
-                },
-            ]
-        })
+        flow_03_response = self._session.post(
+            'https://api.x.com/1.1/onboarding/task.json',
+            json={
+                'flow_token': get_flow_token(flow_02_response),
+                'subtask_inputs': [
+                    {
+                        'subtask_id': 'LoginEnterUserIdentifierSSO',
+                        'settings_list': {
+                            'setting_responses': [
+                                {
+                                    'key': 'user_identifier',
+                                    'response_data': {
+                                        'text_data': {
+                                            'result': self.screen_name,
+                                        }
+                                    },
+                                },
+                            ],
+                            'link': 'next_link',
+                        },
+                    },
+                ],
+            },
+        )
         if flow_03_response.status_code != 200:
             raise self._get_tweepy_exception(flow_03_response)
 
@@ -738,18 +747,21 @@ class CookieSessionUserHandler(AuthBase):
         time.sleep(random.uniform(2.0, 4.0))
 
         # パスワードを認証フローに送信
-        flow_04_response = self._session.post('https://api.x.com/1.1/onboarding/task.json', json={
-            'flow_token': get_flow_token(flow_03_response),
-            'subtask_inputs': [
-                {
-                    'subtask_id': 'LoginEnterPassword',
-                    'enter_password': {
-                        'password': self.password,
-                        'link': 'next_link',
-                    }
-                },
-            ]
-        })
+        flow_04_response = self._session.post(
+            'https://api.x.com/1.1/onboarding/task.json',
+            json={
+                'flow_token': get_flow_token(flow_03_response),
+                'subtask_inputs': [
+                    {
+                        'subtask_id': 'LoginEnterPassword',
+                        'enter_password': {
+                            'password': self.password,
+                            'link': 'next_link',
+                        },
+                    },
+                ],
+            },
+        )
         if flow_04_response.status_code != 200:
             raise self._get_tweepy_exception(flow_04_response)
 
@@ -763,10 +775,13 @@ class CookieSessionUserHandler(AuthBase):
         # 最後の最後にファイナライズを行う
         ## このリクエストで、Cookie に auth_token がセットされる
         ## このタイミングで Cookie の "ct0" 値 (CSRF トークン) がクライアント側で生成したものから、サーバー側で生成したものに更新される
-        flow_05_response = self._session.post('https://api.x.com/1.1/onboarding/task.json', json={
-            'flow_token': get_flow_token(flow_04_response),
-            'subtask_inputs': [],
-        })
+        flow_05_response = self._session.post(
+            'https://api.x.com/1.1/onboarding/task.json',
+            json={
+                'flow_token': get_flow_token(flow_04_response),
+                'subtask_inputs': [],
+            },
+        )
         if flow_05_response.status_code != 200:
             raise self._get_tweepy_exception(flow_05_response)
 

@@ -5,10 +5,9 @@ build-backend = "hatchling.build"
 [project]
 name = "tweepy-authlib"
 description = 'Twitter Web App (Web 版公式クライアント) の内部 API を使い、Tweepy でスクリーンネームとパスワードで認証するためのライブラリ'
-url = "https://github.com/tsukumijima/tweepy-authlib"
 readme = "Readme.md"
-requires-python = ">=3.8"
-license-file = "License.txt"
+requires-python = ">=3.9"
+license = {file = "License.txt"}
 keywords = ["Twitter", "Tweepy", "Library"]
 authors = [
     { name = "tsukumi" },
@@ -20,7 +19,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Natural Language :: Japanese",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -53,7 +51,22 @@ no-cov = "cov --no-cov {args}"
 test = "python tests/test_main.py"
 
 [[tool.hatch.envs.test.matrix]]
-python = ["38", "39", "310", "311"]
+python = ["39", "310", "311"]
+
+[tool.hatch.envs.style]
+dependencies = [
+    "ruff",
+    "pyright",
+    "pytest",
+    "pytest-dotenv",
+]
+[tool.hatch.envs.style.scripts]
+# Usage: `hatch run style:lint`
+lint = ["ruff check --fix . ; pyright"]
+# Usage: `hatch run style:format`
+format = ["ruff format ."]
+# Usage: `hatch run style:typecheck`
+typecheck = ["pyright"]
 
 [tool.coverage.run]
 branch = true
@@ -68,3 +81,63 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.ruff]
+# 1行の長さを最大120文字に設定
+line-length = 120
+# インデントの幅を4スペースに設定
+indent-width = 4
+# Python 3.9 を利用する
+target-version = "py39"
+
+[tool.ruff.lint]
+# flake8, pycodestyle, pyupgrade, isort, Ruff 固有のルールを使う
+select = ["F", "E", "W", "UP", "I", "RUF"]
+ignore = [
+    "E501",    # 1行の長さを超えている場合の警告を抑制
+    "E731",    # Do not assign a `lambda` expression, use a `def` を抑制
+    "RUF001",  # 全角記号など `ambiguous unicode character` も使いたいため
+    "RUF002",  # 全角記号など `ambiguous unicode character` も使いたいため
+    "RUF003",  # 全角記号など `ambiguous unicode character` も使いたいため
+]
+
+[tool.ruff.lint.isort]
+# インポートブロックの後に2行空ける
+lines-after-imports = 2
+
+[tool.ruff.format]
+# シングルクオートを使う
+quote-style = "single"
+# インデントにはスペースを使う
+indent-style = "space"
+
+[tool.pyright]
+# Python バージョンを指定
+pythonVersion = "3.9"
+# TypeCheckingMode を strict に設定（VSCode の設定と同等）
+typeCheckingMode = "strict"
+# プロジェクトルートを指定
+pythonPlatform = "All"
+# インクルードするパッケージパス
+include = [
+    "tweepy_authlib/",
+    "tests/",
+]
+# 除外するパス
+exclude = [
+    "**/__pycache__",
+    "**/.venv",
+    "dist/",
+]
+# VSCode の settings.json の diagnosticSeverityOverrides に対応する設定
+reportConstantRedefinition = "none"
+reportDeprecated = "warning"
+reportMissingTypeStubs = "none"
+reportPrivateImportUsage = "none"
+reportShadowedImports = "none"
+reportUnnecessaryComparison = "none"
+reportUnknownArgumentType = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUntypedFunctionDecorator = "none"
+reportUnusedFunction = "none"

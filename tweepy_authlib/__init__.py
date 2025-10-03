@@ -1,2 +1,1 @@
-
-from .CookieSessionUserHandler import CookieSessionUserHandler
+from tweepy_authlib.CookieSessionUserHandler import CookieSessionUserHandler as CookieSessionUserHandler

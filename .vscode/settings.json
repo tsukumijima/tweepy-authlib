@@ -1,10 +1,25 @@
 {
+    // 保存時に Ruff による自動フォーマットを行う
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit",
+        },
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+    },
+    // VSCode でターミナルを開いた際に勝手に .env がロードされないようにする
+    // vscode-python の変な仕様が原因らしい…
+    // ref: https://github.com/microsoft/vscode-python/issues/24209
+    // ref: https://note.com/optim/n/n46080562b660
+    "python.envFile": "",
     // Pylance の Type Checking を有効化
     "python.languageServer": "Pylance",
     "python.analysis.typeCheckingMode": "strict",
     // Pylance の Type Checking のうち、いくつかのエラー報告を抑制する
     "python.analysis.diagnosticSeverityOverrides": {
         "reportConstantRedefinition": "none",
+        "reportDeprecated": "warning",
         "reportMissingTypeStubs": "none",
         "reportPrivateImportUsage": "none",
         "reportShadowedImports": "none",
@@ -12,6 +27,7 @@
         "reportUnknownArgumentType": "none",
         "reportUnknownMemberType": "none",
         "reportUnknownVariableType": "none",
+        "reportUntypedFunctionDecorator": "none",
         "reportUnusedFunction": "none",
     },
 }

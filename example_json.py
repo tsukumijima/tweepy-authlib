@@ -1,10 +1,12 @@
-import dotenv
-import os
 import json
-import tweepy
+import os
 from pathlib import Path
 from pprint import pprint
+
+import dotenv
+import tweepy
 from requests.cookies import RequestsCookieJar
+
 from tweepy_authlib import CookieSessionUserHandler
 
 
@@ -22,9 +24,8 @@ password = os.environ.get('TWITTER_PASSWORD', 'your_password')
 ## 毎回ログインすると不審なログインとして扱われる可能性が高くなるため、
 ## できるだけ以前認証した際に保存した Cookie を使って認証することを推奨
 if Path('cookie.json').exists():
-
     # 保存した Cookie を読み込む
-    with open('cookie.json', 'r') as f:
+    with open('cookie.json') as f:
         cookies_dict = json.load(f)
 
     # RequestCookieJar オブジェクトに変換
@@ -37,7 +38,6 @@ if Path('cookie.json').exists():
 
 # スクリーンネームとパスワードを指定して認証
 else:
-
     # スクリーンネームとパスワードを渡す
     ## スクリーンネームとパスワードを指定する場合は初期化時に認証のための API リクエストが多数行われるため、完了まで数秒かかる
     try:
@@ -110,5 +110,5 @@ print('=' * terminal_size)
 # 継続してログインしない場合は明示的にログアウト
 ## 単に Cookie を消去するだけだと Twitter にセッションが残り続けてしまう
 ## ログアウト後は、取得した Cookie は再利用できなくなる
-#auth_handler.logout()
-#os.unlink('cookie.json')
+# auth_handler.logout()
+# os.unlink('cookie.json')
