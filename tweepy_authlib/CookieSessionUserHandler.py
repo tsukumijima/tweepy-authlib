@@ -27,9 +27,9 @@ class CookieSessionUserHandler(AuthBase):
     ref: https://github.com/fa0311/TwitterFrontendFlow/blob/master/TwitterFrontendFlow/TwitterFrontendFlow.py
     """
 
-    # User-Agent と Sec-CH-UA を Chrome 132 に偽装
-    USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
-    SEC_CH_UA = '"Not)A;Brand";v="99", "Google Chrome";v="132", "Chromium";v="132"'
+    # User-Agent と Sec-CH-UA を Chrome 140 に偽装
+    USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
+    SEC_CH_UA = '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"'
 
     # Twitter Web App (GraphQL API) の Bearer トークン
     TWITTER_WEB_APP_BEARER_TOKEN = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
@@ -75,7 +75,7 @@ class CookieSessionUserHandler(AuthBase):
         # HTML 取得時の HTTP リクエストヘッダー
         self._html_headers = {
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'accept-encoding': 'gzip, deflate, br',
+            'accept-encoding': 'gzip, deflate, br, zstd',
             'accept-language': 'ja',
             'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
@@ -100,7 +100,7 @@ class CookieSessionUserHandler(AuthBase):
         # 認証フロー API アクセス時の HTTP リクエストヘッダー
         self._auth_flow_api_headers = {
             'accept': '*/*',
-            'accept-encoding': 'gzip, deflate, br',
+            'accept-encoding': 'gzip, deflate, br, zstd',
             'accept-language': 'ja',
             'authorization': self.TWITTER_WEB_APP_BEARER_TOKEN,
             'content-type': 'application/json',
@@ -123,16 +123,18 @@ class CookieSessionUserHandler(AuthBase):
         ## GraphQL API は https://x.com/i/api/graphql/ 配下にあり同一ドメインのため、origin と referer は意図的に省略している
         self._graphql_api_headers = {
             'accept': '*/*',
-            'accept-encoding': 'gzip, deflate, br',
+            'accept-encoding': 'gzip, deflate, br, zstd',
             'accept-language': 'ja',
             'authorization': self.TWITTER_WEB_APP_BEARER_TOKEN,
             'content-type': 'application/json',
+            'origin': 'https://x.com',
+            'referer': 'https://x.com/home',
             'sec-ch-ua': self.SEC_CH_UA,
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-site',
+            'sec-fetch-site': 'same-origin',
             'user-agent': self.USER_AGENT,
             'x-csrf-token': None,  # ここは後でセットする
             'x-twitter-active-user': 'yes',
