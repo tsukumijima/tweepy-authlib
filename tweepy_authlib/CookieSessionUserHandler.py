@@ -6,15 +6,19 @@ import re
 import time
 from io import BytesIO
 from typing import Any, Optional, TypeVar, Union, cast
+from urllib.parse import urlparse
 
 import js2py
 import requests
 import tweepy
+from bs4 import BeautifulSoup
 from curl_cffi import requests as curl_requests
 from js2py.base import JsObjectWrapper
 from requests.auth import AuthBase
 from requests.cookies import RequestsCookieJar
 from requests.models import PreparedRequest
+from x_client_transaction.transaction import ClientTransaction
+from x_client_transaction.utils import get_ondemand_file_url
 
 
 Self = TypeVar('Self', bound='CookieSessionUserHandler')
@@ -161,6 +165,9 @@ class CookieSessionUserHandler(AuthBase):
             ## 可能な限り Chrome からのリクエストに偽装するため、明示的に HTTP/2 で接続する
             http_version='v2',
         )
+
+        # XClientTransaction インスタンス (self._login() 実行時に初期化される)
+        self._client_transaction: Optional[ClientTransaction] = None
 
         # Cookie が指定されている場合は、それをセッションにセット (再ログインを省略する)
         if cookies is not None:
@@ -397,9 +404,10 @@ class CookieSessionUserHandler(AuthBase):
         self,
         method: curl_requests.session.HttpMethod,
         url: str,
-        headers: Optional[curl_requests.session.HeaderTypes] = None,
+        headers: Optional[dict[str, Any]] = None,
         data: Optional[Union[dict[str, str], list[tuple[Any, ...]], str, BytesIO, bytes]] = None,
         json: Optional[Union[dict[str, Any], list[Any]]] = None,
+        add_transaction_id: Optional[bool] = None,
     ) -> curl_requests.Response:
         """
         curl-cffi セッションでリクエストを送り、API からレスポンスが返ってきた際に自動で CSRF トークンを更新する
@@ -408,17 +416,64 @@ class CookieSessionUserHandler(AuthBase):
         Args:
             method (curl_requests.session.HttpMethod): リクエストメソッド
             url (str): リクエスト URL
-            headers (Optional[curl_requests.session.HeaderTypes], optional): リクエストヘッダー. Defaults to None.
+            headers (Optional[dict[str, str]], optional): リクエストヘッダー. Defaults to None.
             data (Optional[Union[dict[str, str], list[tuple[Any, ...]], str, BytesIO, bytes]], optional): リクエストボディ. Defaults to None.
-            json (Optional[Union[dict[str, Any], list[Any]]], optional): リクエストボディ. Defaults to None.
+            json (Optional[Union[dict[str, Any], list[Any]]], optional): JSON ボディ. Defaults to None.
+            add_transaction_id (Optional[bool], optional): X-Client-Transaction-ID を付与するかどうか. Defaults to None.
 
         Returns:
             curl_requests.Response: レスポンス
         """
 
-        response = self._session.request(method, url, headers=headers, data=data, json=json)
+        # 明示指定がない場合、URL から X-Client-Transaction-ID を付与するか判定
+        if add_transaction_id is None:
+            add_transaction_id = True
+            # https://api.x.com または https://x.com/i/api/ 以下以外の URL はヘッダーを付与しない
+            if not url.startswith('https://api.x.com/') and not url.startswith('https://x.com/i/api/'):
+                add_transaction_id = False
+
+        # API リクエストに対応する X-Client-Transaction-ID の付与が有効なとき、
+        # メソッドと API パスから X-Client-Transaction-ID を生成
+        if add_transaction_id is True:
+            transaction_id = self._generate_x_client_transaction_id(method, url)
+            # 生成した HTTP ヘッダーを追加
+            if headers is None:
+                headers = {}
+            headers['x-client-transaction-id'] = transaction_id
+
+        response = self._session.request(
+            method,
+            url,
+            headers=headers,
+            data=data,
+            json=json,
+        )
         self._on_response_received(response)
         return response
+
+    def _generate_x_client_transaction_id(
+        self,
+        method: curl_requests.session.HttpMethod,
+        url: str,
+    ) -> str:
+        """
+        XClientTransaction ライブラリを使い X-Client-Transaction-ID を生成する
+
+        Args:
+            method (curl_requests.session.HttpMethod): リクエストメソッド
+            url (str): リクエスト URL
+
+        Returns:
+            str: 生成された X-Client-Transaction-ID
+        """
+
+        if self._client_transaction is None:
+            raise tweepy.TweepyException('XClientTransaction generator is not initialized')
+
+        # メソッドと API パス (クエリは含めない) を指定して X-Client-Transaction-ID を生成
+        # 例: method="POST", path="/i/api/graphql/1VOOyvKkiI3FMmkeDNxM9A/UserByScreenName"
+        # ref: https://github.com/iSarabjitDhiman/XClientTransaction#generate-x-client-transaction-i-tid
+        return self._client_transaction.generate_transaction_id(method, urlparse(url).path)
 
     def _on_response_received(
         self, response: Union[curl_requests.Response, requests.Response], *args: Any, **kwargs: Any
@@ -628,13 +683,30 @@ class CookieSessionUserHandler(AuthBase):
 
         # 一度 https://x.com/ にアクセスして Cookie をセットさせる
         ## 取得した HTML はゲストトークンを取得するために使う
-        html_response = self._session_request(
+        home_page_html_response = self._session_request(
             method='GET',
             url='https://x.com/i/flow/login',
             headers=self._html_headers,
         )
-        if html_response.status_code != 200:
-            raise self._get_tweepy_exception(html_response)
+        if home_page_html_response.status_code != 200:
+            raise self._get_tweepy_exception(home_page_html_response)
+
+        # X-Client-Transaction-ID 生成に必要な ondemand.js スクリプトを取得
+        home_page_response_soup = BeautifulSoup(home_page_html_response.text, 'html.parser')
+        ondemand_js_url = get_ondemand_file_url(home_page_response_soup)
+        if ondemand_js_url is None:
+            raise tweepy.TweepyException('Failed to locate ondemand script for X-Client-Transaction-ID')
+        ondemand_js_response = self._session_request(
+            method='GET',
+            url=ondemand_js_url,
+            headers=self._js_headers,
+        )
+        if ondemand_js_response.status_code != 200:
+            raise self._get_tweepy_exception(ondemand_js_response)
+
+        # XClientTransaction インスタンスを初期化
+        ondemand_js_response_soup = BeautifulSoup(ondemand_js_response.text, 'html.parser')
+        self._client_transaction = ClientTransaction(home_page_response_soup, ondemand_js_response_soup)
 
         # CSRF トークンを生成し、"ct0" としてセッションの Cookie に保存
         ## 同時に認証フロー API 用の HTTP リクエストヘッダーにもセット ("ct0" と "x-csrf-token" は同じ値になる)
