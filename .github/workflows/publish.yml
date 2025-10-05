@@ -1,0 +1,42 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish_pypi:
+        type: boolean
+        required: true
+        description: 'Publish to PyPI (Production)'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    name: Build and publish distribution
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install Hatch
+        run: python -m pip install hatch
+
+      - name: Build wheel and sdist
+        run: hatch build
+
+      - name: Publish to PyPI
+        if: ${{ github.event.inputs.publish_pypi == 'true' || github.event_name == 'push' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          password: ${{ secrets.PYPI_API_TOKEN }}
