@@ -4,6 +4,7 @@ import json
 import random
 import re
 import time
+from collections.abc import MutableMapping
 from io import BytesIO
 from typing import Any, Optional, TypeVar, Union, cast
 from urllib.parse import urlparse
@@ -28,11 +29,14 @@ class CookieSessionUserHandler(AuthBase):
     """
     Twitter Web App の内部 API を使い、Cookie ログインで Twitter API を利用するための認証ハンドラー
 
-    認証フローは2023年2月現在の Twitter Web App (Chrome Desktop) の挙動に極力合わせたもの
+    認証フローは2025年9月現在の Twitter Web App (Chrome Desktop) の挙動に極力合わせたもの
     requests.auth.AuthBase を継承しているので、tweepy.API の auth パラメーターに渡すことができる
 
     ref: https://github.com/mikf/gallery-dl/blob/master/gallery_dl/extractor/twitter.py
     ref: https://github.com/fa0311/TwitterFrontendFlow/blob/master/TwitterFrontendFlow/TwitterFrontendFlow.py
+    ref: https://github.com/d60/twikit
+    ref: https://github.com/iSarabjitDhiman/TweeterPy
+    ref: https://github.com/iSarabjitDhiman/XClientTransaction
     """
 
     # User-Agent と Sec-CH-UA を Chrome 140 に偽装
@@ -132,7 +136,6 @@ class CookieSessionUserHandler(AuthBase):
         }
 
         # GraphQL API (Twitter Web App API) アクセス時の HTTP リクエストヘッダー
-        ## GraphQL API は https://x.com/i/api/graphql/ 配下にあり同一ドメインのため、origin と referer は意図的に省略している
         self._graphql_api_headers = {
             'accept': '*/*',
             'accept-encoding': 'gzip, deflate, br, zstd',
@@ -201,7 +204,7 @@ class CookieSessionUserHandler(AuthBase):
         ## 逆に怪しまれる可能性があるため GraphQL API 用ヘッダーに変更した
         ## cross_origin=True を指定して、x.com から api.x.com にクロスオリジンリクエストを送信した際のヘッダーを模倣する
         self._session.headers.clear()
-        self._session.headers.update(self.get_graphql_api_headers(cross_origin=True))  # type: ignore
+        self._session.headers.update(self.get_graphql_api_headers(cross_origin=True))
 
     def __call__(self, request: PreparedRequest) -> PreparedRequest:
         """
@@ -217,7 +220,7 @@ class CookieSessionUserHandler(AuthBase):
         # リクエストヘッダーを認証用セッションのものに差し替える
         # content-type を上書きしないよう、content-type を控えておいてから差し替える
         content_type = request.headers.get('content-type', None)
-        request.headers.update(self._session.headers)  # type: ignore
+        request.headers.update(cast(MutableMapping[str, str], self._session.headers))
         if content_type is not None:
             request.headers['content-type'] = content_type  # 元の content-type に戻す
 
@@ -247,7 +250,7 @@ class CookieSessionUserHandler(AuthBase):
 
         # upload.twitter.com or upload.x.com 以下の API のみ、Twitter Web App の挙動に合わせいくつかのヘッダーを追加削除する
         if 'upload.twitter.com' in request.url or 'upload.x.com' in request.url:
-            # x.com から見て upload.x.com の API リクエストはクロスオリジンになるため、Origin と Referer を追加する
+            # x.com から見て upload.x.com の API リクエストはクロスオリジンになるため、必ず origin と referer を追加する
             request.headers['origin'] = 'https://x.com'
             request.headers['referer'] = 'https://x.com/'
             # 以下のヘッダーは upload.x.com への API リクエストではなぜか付与されていない
@@ -256,9 +259,10 @@ class CookieSessionUserHandler(AuthBase):
             request.headers.pop('x-twitter-client-language', None)
 
         # Cookie を認証用セッションのものに差し替える
-        request._cookies.update(self._session.cookies)  # type: ignore
+        cookies = self.get_cookies()
+        request._cookies.update(cookies)  # type: ignore[attr-defined]
         cookie_header = ''
-        for key, value in self._session.cookies.get_dict().items():
+        for key, value in cookies.get_dict().items():
             cookie_header += f'{key}={value}; '
         request.headers['cookie'] = cookie_header.rstrip('; ')
 
@@ -338,29 +342,24 @@ class CookieSessionUserHandler(AuthBase):
             headers['sec-fetch-mode'] = 'cors'
         return headers
 
-    def get_graphql_api_headers(self, cross_origin: bool = False) -> dict[str, Optional[str]]:
+    def get_graphql_api_headers(self, cross_origin: bool = True) -> dict[str, Optional[str]]:
         """
         GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダーを取得する
         このリクエストヘッダーを使い独自に API リクエストを行う際は、
         必ず x-csrf-token ヘッダーの値を常に Cookie 内の "ct0" と一致させるように実装しなければならない
-        Twitter API v1.1 に使う場合は cross_origin=True を指定すること (api.x.com が x.com から見て cross-origin になるため)
-        逆に GraphQL API に使う場合は cross_origin=False でなければならない (GraphQL API は x.com から見て same-origin になるため)
+        cross_origin=False を指定すると、origin, referer ヘッダーを付与しない
 
         Args:
-            cross_origin (bool, optional): 返すヘッダーを x.com 以外のオリジンに送信するかどうか. Defaults to False.
+            cross_origin (bool, optional): 返すヘッダーを x.com 以外のオリジンに送信するかどうか. Defaults to True.
 
         Returns:
             Dict[str, str]: GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダー
         """
 
         headers = self._graphql_api_headers.copy()
-
-        # クロスオリジン用に origin と referer を追加
-        # Twitter Web App から api.x.com にクロスオリジンリクエストを送信する際のヘッダーを模倣する
-        if cross_origin is True:
-            headers['origin'] = 'https://x.com'
-            headers['referer'] = 'https://x.com/'
-
+        if cross_origin is False:
+            headers.pop('origin', None)
+            headers.pop('referer', None)
         return headers
 
     def logout(self) -> None:
@@ -724,7 +723,7 @@ class CookieSessionUserHandler(AuthBase):
 
         # これ以降は基本認証フロー API へのアクセスしか行わないので、セッションのヘッダーを認証フロー API 用のものに差し替える
         self._session.headers.clear()
-        self._session.headers.update(self._auth_flow_api_headers)  # type: ignore
+        self._session.headers.update(self._auth_flow_api_headers)
 
         # 極力公式の Twitter Web App に偽装するためのダミーリクエスト
         self._session_request(
@@ -743,7 +742,7 @@ class CookieSessionUserHandler(AuthBase):
                     'flow_context': {
                         'debug_overrides': {},
                         'start_location': {
-                            'location': 'manual_link',
+                            'location': 'splash_screen',
                         },
                     }
                 },
@@ -866,6 +865,7 @@ class CookieSessionUserHandler(AuthBase):
                                 },
                             ],
                             'link': 'next_link',
+                            # 本来は castle_token という値も必要だが、生成方法がわからないため省略中
                         },
                     },
                 ],
