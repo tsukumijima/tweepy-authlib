@@ -29,7 +29,7 @@ class CookieSessionUserHandler(AuthBase):
     """
     Twitter Web App の内部 API を使い、Cookie ログインで Twitter API を利用するための認証ハンドラー
 
-    認証フローは2025年9月現在の Twitter Web App (Chrome Desktop) の挙動に極力合わせたもの
+    認証フローは2025年10月現在の Twitter Web App (Chrome Desktop) の挙動に極力合わせたもの
     requests.auth.AuthBase を継承しているので、tweepy.API の auth パラメーターに渡すことができる
 
     ref: https://github.com/mikf/gallery-dl/blob/master/gallery_dl/extractor/twitter.py

@@ -4,33 +4,38 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/tweepy-authlib.svg)](https://pypi.org/project/tweepy-authlib)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/tweepy-authlib.svg)](https://pypi.org/project/tweepy-authlib)
 
+> [!IMPORTANT]  
+> **2025年10月リリースの tweepy-authlib v1.6.0 以降では、長らく動作していなかったログイン処理が正常に動作するようになりました！**  
+> [curl-cffi](https://github.com/lexiforest/curl_cffi) を使い API リクエスト時の TLS フィンガープリントを Chrome に偽装し、また [X-Client-Transaction-ID ヘッダーを生成](https://github.com/iSarabjitDhiman/XClientTransaction)・付与した状態でリクエストすることで、ログインの成功確率が大幅に向上しています。  
+> **凍結やアカウントロックのリスクを下げるためにも、最新版の tweepy-authlib の利用をおすすめします。**
+> 
+> なお、**ログイン実績のない IP からログインを実行すると、ほぼ確実に確認コードの入力が必要となり、このライブラリではログイン処理に失敗します。**  
+> 同じ IP を共有しているデバイスから Web 版公式クライアントで当該アカウントにログインし、確認コードの入力を終えてから時間を空けて実行すると、ログインできる可能性が高くなります。
+
 > [!WARNING]  
-> **旧 TweetDeck の完全廃止にともない、2023/09/14 頃から内部的に残存していた Twitter API v1.1 の段階的なシャットダウンが開始されています。**  
-> **2024/04/30 時点では、下記 API が既に廃止されています ([参考](https://github.com/dimdenGD/OldTweetDeck/blob/main/src/interception.js)) 。**  
-> 現時点では 2023/09 にサーバー負荷が高い API が一括廃止されて以降の動きはありません。ただし、リストにない API も既に廃止されている可能性があります。
+> **旧 TweetDeck の完全廃止にともない、2023/09/14 頃から、内部的に残存していた Twitter API v1.1 の段階的なシャットダウンが開始されています。**  
+> **2025年10月時点では、下記 API が既に廃止されています ([参考](https://github.com/dimdenGD/OldTweetDeck/blob/main/src/interception.js)) 。**  
 > - `search/tweets` : ツイート検索
 > - `search/universal` : ツイート検索 (旧 TweetDeck 独自 API)
+> - `users/search` : ユーザー検索
 > - `statuses/update` : ツイート投稿
 > - `statuses/retweet/:id` : リツイート
 > - `statuses/unretweet/:id` : リツイート取り消し
 > - `statuses/show/:id` : ツイート詳細
 > - `statuses/destroy/:id` : ツイート削除
-> - `statuses/user_timeline` : ユーザータイムライン
-> - `users/search` : ユーザー検索
+> - `statuses/user_timeline` : ユーザーのツイート一覧
+> - `statuses/bookmarks` : ブックマーク一覧
+> - `translations/show` : 翻訳されたツイート詳細
+> - `favorites/list` : ユーザーのいいね！一覧
+> - `lists/statuses` : リストのツイート一覧
+> 
+> 2025年10月時点では、2023年09月にサーバー負荷が高い API が一括で廃止された以降、大きな動きはありません。  
+> **`account/verify_credentials`・`statuses/home_timeline`・フォロー/フォロワー情報関連 API など、上記以外の一部 API は今なお残存しており、tweepy + tweepy-authlib から利用可能です (下記サンプルコードを参照) 。**  
+> ただし、リストにない API も既に廃止されている可能性があることに注意してください。
 >
 > **現在 tweepy-authlib を利用して上記機能を実装するには、別途 GraphQL API (Twitter Web App の内部 API) クライアントを自作する必要があります。**  
 > 私が [KonomiTV](https://github.com/tsukumijima/KonomiTV) 向けに開発した GraphQL API クライアントの実装が [こちら](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/utils/TwitterGraphQLAPI.py) ([使用例](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/routers/TwitterRouter.py)) にありますので、参考になれば幸いです。  
 > また現時点で廃止されていない API を利用したサンプルコードが [example_json.py](example_json.py) と [example_pickle.py](example_pickle.py) にありますので、そちらもご一読ください。
-
-> [!NOTE]  
-> **tweepy-authlib v1.4.1 以降では、より厳密に Twitter Web App からの HTTP リクエストに偽装したり、一部の Twitter API v1.1 に再びアクセスできるようになるなど、様々な改善が行われています！**  
-> 凍結やアカウントロックのリスクを下げるためにも、最新版の tweepy-authlib の利用をおすすめします。
-
-> [!IMPORTANT]  
-> **tweepy-authlib v1.5.0 にて、twitter.com の x.com への移行に対応しました。**  
-> 2024/05/18 時点では twitter.com のままでも API にアクセスできますが、不審がられるリスクが上がるうえ、いつまでアクセスできるかも不透明なためです。  
-> これにより、`CookieSessionUserHandler.get_graphql_api_headers()` で返される Origin / Referer ヘッダーの値が `twitter.com` から `x.com` に変更されています。  
-> GraphQL API クライアントを自作されている場合は、更新と同時に GraphQL API クライアントのアクセス先 URL を `twitter.com/i/api/graphql` から `x.com/i/api/graphql` に変更することを推奨します。
 
 > [!IMPORTANT]  
 > 2024/05/18 時点では [tweepy-authlib が依存する js2py が Python 3.12 に対応していない](https://github.com/tsukumijima/tweepy-authlib/issues/5) ため、tweepy-authlib は Python 3.12 以降では動作しません。  
@@ -58,23 +63,21 @@ Twitter Web App (Web 版公式クライアント) の内部 API を使い、[Twe
 Tweepy を利用しているソースコードのうち、認証部分 (`tweepy.auth.OAuth1UserHandler`) を `tweepy_authlib.CookieSessionUserHandler` に置き換えるだけで、かんたんに Cookie ベースの認証に変更できます！  
 認証部分以外は OAuth API のときの実装がそのまま使えるので、ソースコードの変更も最小限に抑えられます。
 
-> [!NOTE]  
-> OAuth API と公式クライアント用の内部 API がほぼ共通だった v1.1 とは異なり、v2 では OAuth API と公式クライアント用の内部 API が大きく異なります。  
-> そのため、`CookieSessionUserHandler` は Twitter API v2 には対応していません。  
-> また、今のところ2段階認証にも対応していません (2段階認証に関しては技術的には実装可能だが、確認コードの送信周りの実装が面倒…) 。
-
-認証フローはブラウザ上で動作する Web 版公式クライアントの API アクセス動作や HTTP リクエストヘッダーを可能な限りエミュレートしています。  
+認証フローは、ブラウザ上で動作する Web 版公式クライアントの API アクセス動作や HTTP リクエストヘッダーを、可能な限りシミュレートしています。  
 ブラウザから抽出した Web 版公式クライアントのログイン済み Cookie を使うことでも認証が可能です。
+
+> [!WARNING]
+> **このライブラリは2段階認証 (MFA) や、不審なログインと判定された際の確認コードの入力には対応していません。**  
+> 技術的には実装できますが、確認コードの送受信周りの API インターフェイスをどう設計するかが面倒で…。  
+> 2段階認証に対応したクライアント実装として、他に [twikit](https://github.com/d60/twikit/blob/main/twikit/client/client.py) や [TweeterPy](https://github.com/iSarabjitDhiman/TweeterPy/blob/master/tweeterpy/login.py) があります (いずれもコード入力で `input()` を使用しており CLI 端末前提となる) 。
+
+> [!NOTE]  
+> OAuth API と公式クライアント用の内部 API がほぼ共通だった v1.1 とは異なり、v2 では OAuth API と公式クライアント用の内部 API (GraphQL API) が大きく異なります。  
+> そのため、`CookieSessionUserHandler` は Twitter API v2 には対応していません。  
 
 > [!NOTE]  
 > ブラウザから Cookie を抽出する場合、(不審なアクセス扱いされないために) できればすべての Cookie を抽出することが望ましいですが、実装上は Cookie 内の `auth_token` と `ct0` の2つの値だけあれば認証できます。  
 > なお、ブラウザから取得した Cookie は事前に `requests.cookies.RequestsCookieJar` に変換してください。
-
-さらに API アクセス時は TweetDeck の HTTP リクエスト (Twitter API v1.1) をエミュレートしているため、レートリミットなどの制限は TweetDeck と同一です。  
-
-> [!NOTE]  
-> `CookieSessionUserHandler` で取得した認証情報を使うと、TweetDeck でしか利用できない search/universal などの内部 API にもアクセスできるようになります。  
-> ただし、Tweepy はそうした内部 API をサポートしていないため、アクセスするには独自に `tweepy.API.request()` で HTTP リクエストを送る必要があります。
 
 > [!WARNING]  
 > このライブラリは、非公式かつ内部的な API をリバースエンジニアリングし、ブラウザとほぼ同じように API アクセスを行うことで、本来 Web 版公式クライアントでしか利用できない Cookie 認証での Twitter API v1.1 へのアクセスを可能にしています。  
