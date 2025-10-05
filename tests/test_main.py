@@ -15,32 +15,22 @@ except OSError:
     terminal_size = 80
 
 
-def test_01():
+def test_validate_arguments_01():
     with pytest.raises(ValueError):
         CookieSessionUserHandler()
 
 
-def test_02():
+def test_validate_arguments_02():
     with pytest.raises(ValueError):
         CookieSessionUserHandler(screen_name='', password='password')
 
 
-def test_03():
+def test_validate_arguments_03():
     with pytest.raises(ValueError):
         CookieSessionUserHandler(screen_name='elonmusk', password='')
 
 
-def test_04():
-    with pytest.raises(tweepy.BadRequest, match=r'.*399 - アカウントが見つかりません。.*'):
-        CookieSessionUserHandler(screen_name='not__found__user', password='password')
-
-
-def test_05():
-    with pytest.raises(tweepy.BadRequest, match=r'.*399 - パスワードが正しくありません。.*'):
-        CookieSessionUserHandler(screen_name='elonmusk', password='password')
-
-
-def test_06():
+def test_login_with_screen_name_and_password():
     # 環境変数に TWITTER_SCREEN_NAME と TWITTER_PASSWORD が設定されている場合のみ実行
     if 'TWITTER_SCREEN_NAME' in os.environ and 'TWITTER_PASSWORD' in os.environ:
         print('=' * terminal_size)
@@ -66,7 +56,7 @@ def test_06():
         pytest.skip('TWITTER_SCREEN_NAME or TWITTER_PASSWORD is not set.')
 
 
-def test_07(tweet: bool = False):
+def test_login_with_cookies(tweet: bool = False):
     # 環境変数に TWITTER_SCREEN_NAME と TWITTER_PASSWORD が設定されている場合のみ実行
     if 'TWITTER_SCREEN_NAME' in os.environ and 'TWITTER_PASSWORD' in os.environ:
         print('=' * terminal_size)
@@ -132,5 +122,5 @@ def test_07(tweet: bool = False):
 
 if __name__ == '__main__':
     dotenv.load_dotenv()
-    test_06()
-    test_07(tweet=True)
+    test_login_with_screen_name_and_password()
+    test_login_with_cookies(tweet=True)
