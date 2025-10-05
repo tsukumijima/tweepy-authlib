@@ -9,12 +9,12 @@ from io import BytesIO
 from typing import Any, Optional, TypeVar, Union, cast
 from urllib.parse import urlparse
 
-import js2py
+import js2py_
 import requests
 import tweepy
 from bs4 import BeautifulSoup
 from curl_cffi import requests as curl_requests
-from js2py.base import JsObjectWrapper
+from js2py_.base import JsObjectWrapper
 from requests.auth import AuthBase
 from requests.cookies import RequestsCookieJar
 from requests.models import PreparedRequest
@@ -635,7 +635,7 @@ class CookieSessionUserHandler(AuthBase):
             """
 
         # 難読化された JavaScript を実行
-        js_context = js2py.EvalJs()
+        js_context = js2py_.EvalJs()
         js_context.execute(js_dom_mock)
         js_context.execute(js_inst_function)
         js_context.execute(f'var ui_metrics = {js_inst_function_name}()')

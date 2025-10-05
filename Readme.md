@@ -5,7 +5,7 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/tweepy-authlib.svg)](https://pypi.org/project/tweepy-authlib)
 
 > [!IMPORTANT]  
-> **2025年10月リリースの tweepy-authlib v1.6.0 以降では、長らく動作していなかったログイン処理が正常に動作するようになりました！**  
+> **2025年10月リリースの tweepy-authlib v1.6.0 以降では、長らく動作していなかったログイン処理が正常に動作するようになりました！また、Python 3.12・3.11 に対応しました。**  
 > [curl-cffi](https://github.com/lexiforest/curl_cffi) を使い API リクエスト時の TLS フィンガープリントを Chrome に偽装し、また [X-Client-Transaction-ID ヘッダーを生成](https://github.com/iSarabjitDhiman/XClientTransaction)・付与した状態でリクエストすることで、ログインの成功確率が大幅に向上しています。  
 > **凍結やアカウントロックのリスクを下げるためにも、最新版の tweepy-authlib の利用をおすすめします。**
 > 
@@ -36,10 +36,6 @@
 > **現在 tweepy-authlib を利用して上記機能を実装するには、別途 GraphQL API (Twitter Web App の内部 API) クライアントを自作する必要があります。**  
 > 私が [KonomiTV](https://github.com/tsukumijima/KonomiTV) 向けに開発した GraphQL API クライアントの実装が [こちら](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/utils/TwitterGraphQLAPI.py) ([使用例](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/routers/TwitterRouter.py)) にありますので、参考になれば幸いです。  
 > また現時点で廃止されていない API を利用したサンプルコードが [example_json.py](example_json.py) と [example_pickle.py](example_pickle.py) にありますので、そちらもご一読ください。
-
-> [!IMPORTANT]  
-> 2024/05/18 時点では [tweepy-authlib が依存する js2py が Python 3.12 に対応していない](https://github.com/tsukumijima/tweepy-authlib/issues/5) ため、tweepy-authlib は Python 3.12 以降では動作しません。  
-> [js2py](https://github.com/PiotrDabkowski/Js2Py) の Python 3.12 対応が完了するまで、Python 3.11 以下での利用をおすすめします。
 
 -----
 

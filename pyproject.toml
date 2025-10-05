@@ -22,12 +22,14 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
     "beautifulsoup4>=4.13.1",
     "curl-cffi>=0.13.0",
-    "js2py>=0.74",
+    "js2py-3.13>=0.74.1",
     "tweepy>=4.12.1",
     "xclienttransaction>=1.0.0",
 ]
@@ -55,7 +57,7 @@ no-cov = "cov --no-cov {args}"
 test = "python tests/test_main.py"
 
 [[tool.hatch.envs.test.matrix]]
-python = ["39", "310", "311"]
+python = ["39", "310", "311", "312", "313"]
 
 [tool.hatch.envs.style]
 dependencies = [
