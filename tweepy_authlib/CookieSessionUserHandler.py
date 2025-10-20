@@ -208,7 +208,7 @@ class CookieSessionUserHandler(AuthBase):
 
     def __call__(self, request: PreparedRequest) -> PreparedRequest:
         """
-        requests ライブラリからリクエスト開始時に呼び出されるフック
+        tweepy.API インスタンス内の requests ライブラリからリクエスト開始時に呼び出されるフック
 
         Args:
             request (PreparedRequest): PreparedRequest オブジェクト
@@ -230,6 +230,13 @@ class CookieSessionUserHandler(AuthBase):
         assert request.url is not None
         request.url = request.url.replace('twitter.com/', 'x.com/')
 
+        # API にリクエストする際は原則 X-Client-Transaction-ID ヘッダーを付与する
+        # アップロード系 API のみ、この後の処理で X-Client-Transaction-ID ヘッダーを削除した上でリクエストされる
+        if request.method is not None:
+            http_method = cast(curl_requests.session.HttpMethod, request.method.upper())
+            transaction_id = self._generate_x_client_transaction_id(http_method, request.url)
+            request.headers['x-client-transaction-id'] = transaction_id
+
         # Twitter API v1.1 の一部 API には旧 TweetDeck 用の Bearer トークンでないとアクセスできないため、
         # 該当の API のみ旧 TweetDeck 用の Bearer トークンに差し替える
         # それ以外の API ではそのまま Twitter Web App の Bearer トークンを使い続けることで、不審判定される可能性を下げる
@@ -248,13 +255,13 @@ class CookieSessionUserHandler(AuthBase):
         if any(api_url in request.url for api_url in TWEETDECK_BEARER_TOKEN_REQUIRED_APIS):
             request.headers['authorization'] = self.TWEETDECK_BEARER_TOKEN
 
-        # upload.twitter.com or upload.x.com 以下の API のみ、Twitter Web App の挙動に合わせいくつかのヘッダーを追加削除する
-        if 'upload.twitter.com' in request.url or 'upload.x.com' in request.url:
+        # upload.x.com (upload.twitter.com) 以下の API のみ、Twitter Web App の挙動に合わせいくつかのヘッダーを追加削除する
+        if 'upload.x.com' in request.url or 'upload.twitter.com' in request.url:
             # x.com から見て upload.x.com の API リクエストはクロスオリジンになるため、必ず origin と referer を追加する
             request.headers['origin'] = 'https://x.com'
             request.headers['referer'] = 'https://x.com/'
-            # 以下のヘッダーは upload.x.com への API リクエストではなぜか付与されていない
-            request.headers.pop('x-client-transaction-id', None)  # 未実装だが将来的に実装した時のため
+            # 以下のヘッダーは upload.x.com への API リクエストではなぜか付与されていないため削除する
+            request.headers.pop('x-client-transaction-id', None)
             request.headers.pop('x-twitter-active-user', None)
             request.headers.pop('x-twitter-client-language', None)
 
@@ -466,13 +473,57 @@ class CookieSessionUserHandler(AuthBase):
             str: 生成された X-Client-Transaction-ID
         """
 
+        # XClientTransaction インスタンスが未初期化の場合は初期化する
         if self._client_transaction is None:
-            raise tweepy.TweepyException('XClientTransaction generator is not initialized')
+            self._initialize_client_transaction()
+            assert self._client_transaction is not None, 'Failed to initialize XClientTransaction'
 
         # メソッドと API パス (クエリは含めない) を指定して X-Client-Transaction-ID を生成
         # 例: method="POST", path="/i/api/graphql/1VOOyvKkiI3FMmkeDNxM9A/UserByScreenName"
         # ref: https://github.com/iSarabjitDhiman/XClientTransaction#generate-x-client-transaction-i-tid
         return self._client_transaction.generate_transaction_id(method, urlparse(url).path)
+
+    def _initialize_client_transaction(self) -> None:
+        """
+        XClientTransaction インスタンスを遅延初期化する
+
+        Raises:
+            tweepy.TweepyException: 必要な JavaScript リソースが取得できなかった
+        """
+
+        # すでに XClientTransaction インスタンスが初期化されている場合は何もしない
+        if self._client_transaction is not None:
+            return
+
+        # 一度 https://x.com/ にアクセスする
+        ## 未ログイン時は、ゲストトークンの Cookie (Cookie 内の "gt" 値) をセットさせる
+        ## 取得した HTML は X-Client-Transaction-ID 生成に必要な ondemand.js スクリプトの取得にも活用する
+        home_page_response = self._session_request(
+            method='GET',
+            url='https://x.com/',
+            headers=self._html_headers,
+            add_transaction_id=False,
+        )
+        if home_page_response.status_code != 200:
+            raise self._get_tweepy_exception(home_page_response)
+
+        # X-Client-Transaction-ID 生成に必要な ondemand.js スクリプトを取得
+        home_page_response_soup = BeautifulSoup(home_page_response.text, 'html.parser')
+        ondemand_js_url = get_ondemand_file_url(home_page_response_soup)
+        if ondemand_js_url is None:
+            raise tweepy.TweepyException('Failed to locate ondemand script for X-Client-Transaction-ID')
+        ondemand_js_response = self._session_request(
+            method='GET',
+            url=ondemand_js_url,
+            headers=self._js_headers,
+            add_transaction_id=False,
+        )
+        if ondemand_js_response.status_code != 200:
+            raise self._get_tweepy_exception(ondemand_js_response)
+
+        # XClientTransaction インスタンスを初期化
+        ondemand_js_response_soup = BeautifulSoup(ondemand_js_response.text, 'html.parser')
+        self._client_transaction = ClientTransaction(home_page_response_soup, ondemand_js_response_soup)
 
     def _on_response_received(
         self, response: Union[curl_requests.Response, requests.Response], *args: Any, **kwargs: Any
@@ -535,6 +586,7 @@ class CookieSessionUserHandler(AuthBase):
     def _get_guest_token(self) -> str:
         """
         ゲストトークン (Cookie 内の "gt" 値) を取得する
+        通常はこのメソッドを呼び出す必要はなく、_initialize_client_transaction で初期化することで副次的にセットされるはず
 
         Returns:
             str: 取得されたトークン
@@ -680,32 +732,9 @@ class CookieSessionUserHandler(AuthBase):
         # Cookie をクリア
         self._session.cookies.clear()
 
-        # 一度 https://x.com/ にアクセスして Cookie をセットさせる
-        ## 取得した HTML はゲストトークンを取得するために使う
-        home_page_html_response = self._session_request(
-            method='GET',
-            url='https://x.com/i/flow/login',
-            headers=self._html_headers,
-        )
-        if home_page_html_response.status_code != 200:
-            raise self._get_tweepy_exception(home_page_html_response)
-
-        # X-Client-Transaction-ID 生成に必要な ondemand.js スクリプトを取得
-        home_page_response_soup = BeautifulSoup(home_page_html_response.text, 'html.parser')
-        ondemand_js_url = get_ondemand_file_url(home_page_response_soup)
-        if ondemand_js_url is None:
-            raise tweepy.TweepyException('Failed to locate ondemand script for X-Client-Transaction-ID')
-        ondemand_js_response = self._session_request(
-            method='GET',
-            url=ondemand_js_url,
-            headers=self._js_headers,
-        )
-        if ondemand_js_response.status_code != 200:
-            raise self._get_tweepy_exception(ondemand_js_response)
-
-        # XClientTransaction インスタンスを初期化
-        ondemand_js_response_soup = BeautifulSoup(ondemand_js_response.text, 'html.parser')
-        self._client_transaction = ClientTransaction(home_page_response_soup, ondemand_js_response_soup)
+        # このタイミングで明示的に XClientTransaction インスタンスを初期化する
+        # これにより、副次的にログインに必要なゲストトークン (Cookie 内の "gt" 値) がセッション Cookie にセットされる
+        self._initialize_client_transaction()
 
         # CSRF トークンを生成し、"ct0" としてセッションの Cookie に保存
         ## 同時に認証フロー API 用の HTTP リクエストヘッダーにもセット ("ct0" と "x-csrf-token" は同じ値になる)
@@ -714,6 +743,7 @@ class CookieSessionUserHandler(AuthBase):
         self._auth_flow_api_headers['x-csrf-token'] = csrf_token
 
         # まだ取得できていない場合のみ、ゲストトークンを取得し、"gt" としてセッションの Cookie に保存
+        ## 通常発生しないはずだが、フォールバックとして一応実装してある（いつまで動作するのかは不明）
         if self._session.cookies.get('gt', default=None) is None:
             guest_token = self._get_guest_token()
             self._session.cookies.set('gt', guest_token, domain='.x.com')
