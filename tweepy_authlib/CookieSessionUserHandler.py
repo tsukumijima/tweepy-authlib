@@ -3,6 +3,7 @@ import copy
 import json
 import random
 import re
+import secrets
 import time
 from io import BytesIO
 from typing import Any, Optional, TypeVar, Union, cast
@@ -19,6 +20,8 @@ from requests.cookies import RequestsCookieJar
 from requests.models import PreparedRequest
 from x_client_transaction.transaction import ClientTransaction
 from x_client_transaction.utils import get_ondemand_file_url
+
+from tweepy_authlib.__about__ import __version__
 
 
 Self = TypeVar('Self', bound='CookieSessionUserHandler')
@@ -172,6 +175,10 @@ class CookieSessionUserHandler(AuthBase):
 
         # XClientTransaction インスタンス (必要になったタイミングで遅延初期化される)
         self._client_transaction: Optional[ClientTransaction] = None
+
+        # castle_token のキャッシュ管理用変数
+        self._castle_token: Optional[str] = None
+        self._castle_token_timestamp: Optional[float] = None
 
         # Cookie が指定されていない場合は、ここでログインを試みる
         if cookies is None:
@@ -568,6 +575,61 @@ class CookieSessionUserHandler(AuthBase):
         else:
             return tweepy.TweepyException(response)
 
+    def generate_castle_token(self, cuid: str) -> str:
+        """
+        castle_token 生成用 API から認証用 API の突破に必要な castle_token を生成し、60 秒間キャッシュする
+        castle_token の castle とは https://castle.io/ が提供する Bot 対策ソリューションらしい
+        ref: https://github.com/d60/twikit/pull/393
+        ref: https://github.com/heysurfer/twikit/blob/main/twikit/castle_token/castle_token.py
+
+        Args:
+            cuid (str): 生成に利用する cuid
+
+        Returns:
+            str: 生成された castle_token
+        """
+
+        # キャッシュが有効な場合は、キャッシュされた castle_token を返す
+        # キャッシュの有効期間は60秒
+        if self._castle_token is not None and self._castle_token_timestamp is not None:
+            is_token_fresh = (time.time() - self._castle_token_timestamp) < 60.0
+            if is_token_fresh is True:
+                return self._castle_token
+
+        # 有志が公開している castle_token 生成用外部 API にリクエストを送り、新しい castle_token を取得する
+        # レート制限があるらしく、制限を解除して欲しければ有料 API キーを買えということらしいが、そこまで使う人はまずいないはず
+        # ref: https://github.com/d60/twikit/pull/393
+        castle_response = curl_requests.post(
+            url='https://castle.botwitter.com/generate-token',
+            headers={
+                'accept': '*/*',
+                'accept-encoding': 'gzip, deflate, br, zstd',
+                'accept-language': 'ja',
+                'content-type': 'application/json',
+                # これは有志が公開してくれている API なので、tweepy-authlib から利用していることを明示的に伝える
+                'user-agent': f'Mozilla/5.0 tweepy-authlib/{__version__}',
+            },
+            json={
+                'userAgent': self.USER_AGENT,
+                'cuid': cuid,
+            },
+        )
+        if castle_response.status_code != 200:
+            raise tweepy.TweepyException('Failed to generate castle_token')
+        try:
+            response_data = castle_response.json()
+        except Exception:
+            raise tweepy.TweepyException('Failed to decode castle_token response')
+
+        # レスポンスから castle_token を取得してキャッシュする
+        castle_token = response_data.get('token')
+        if castle_token is None or castle_token == '':
+            raise tweepy.TweepyException('castle_token not found in response')
+        self._castle_token = castle_token
+        self._castle_token_timestamp = time.time()
+
+        return castle_token
+
     def _generate_csrf_token(self, size: int = 16) -> str:
         """
         Twitter の CSRF トークン (Cookie 内の "ct0" 値) を生成する
@@ -732,8 +794,16 @@ class CookieSessionUserHandler(AuthBase):
         self._session.cookies.clear()
 
         # このタイミングで明示的に XClientTransaction インスタンスを初期化する
-        # これにより、副次的にログインに必要なゲストトークン (Cookie 内の "gt" 値) がセッション Cookie にセットされる
+        ## この処理で Twitter Web App の PWA 用 HTML と ondemand.js が取得され、
+        ## 副次的にログインに必要なゲストトークン (Cookie 内の "gt" 値) がセッション Cookie にセットされる
         self._initialize_client_transaction()
+
+        # cuid を生成し、"__cuid" としてセッションの Cookie に保存
+        ## cuid は32文字の16進数のランダム文字列で、castle_token の生成に必要らしい (おそらく Castle User ID の略？)
+        ## この ID と castle_token が対応しているかを Twitter の API サーバーで判定しているっぽい感じ
+        ## Twitter Web App は初回ロード時にこの値を生成して Cookie にセットしているっぽいので、それの挙動を模倣する
+        cuid = secrets.token_hex(16)
+        self._session.cookies.set('__cuid', cuid, domain='.x.com')
 
         # CSRF トークンを生成し、"ct0" としてセッションの Cookie に保存
         ## 同時に認証フロー API 用の HTTP リクエストヘッダーにもセット ("ct0" と "x-csrf-token" は同じ値になる)
@@ -905,7 +975,9 @@ class CookieSessionUserHandler(AuthBase):
                                 },
                             ],
                             'link': 'next_link',
-                            # 本来は castle_token という値も必要だが、生成方法がわからないため省略中
+                            # castle_token は generate_castle_token() で生成した値を利用する
+                            # cuid には事前に Cookie にセットした値を利用する
+                            'castle_token': self.generate_castle_token(cuid),
                         },
                     },
                 ],
