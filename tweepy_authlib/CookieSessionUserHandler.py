@@ -128,8 +128,8 @@ class CookieSessionUserHandler(AuthBase):
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-site',
             'user-agent': self.USER_AGENT,
-            'x-csrf-token': None,  # ここは後でセットされる
-            'x-guest-token': None,  # ここは後でセットされる
+            'x-csrf-token': '',  # ここは後でセットされる (ヘッダー順序確保のためにここで空文字列を定義している)
+            'x-guest-token': '',  # ここは後でセットされる (ヘッダー順序確保のためにここで空文字列を定義している)
             'x-twitter-active-user': 'yes',
             'x-twitter-client-language': 'ja',
         }
@@ -150,7 +150,7 @@ class CookieSessionUserHandler(AuthBase):
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-origin',
             'user-agent': self.USER_AGENT,
-            'x-csrf-token': None,  # ここは後でセットされる
+            'x-csrf-token': '',  # ここは後でセットされる (ヘッダー順序確保のためにここで空文字列を定義している)
             'x-twitter-active-user': 'yes',
             'x-twitter-auth-type': 'OAuth2Session',
             'x-twitter-client-language': 'ja',
@@ -364,7 +364,7 @@ class CookieSessionUserHandler(AuthBase):
         if cross_origin is False:
             headers.pop('origin', None)
             headers.pop('referer', None)
-        return cast(dict[str, str], headers)
+        return headers
 
     def logout(self) -> None:
         """
@@ -748,7 +748,7 @@ class CookieSessionUserHandler(AuthBase):
             self._session.cookies.set('gt', guest_token, domain='.x.com')
 
         ## ゲストトークンを認証フロー API 用の HTTP リクエストヘッダーにもセット ("gt" と "x-guest-token" は同じ値になる)
-        self._AUTH_FLOW_API_HEADERS['x-guest-token'] = self._session.cookies.get('gt')
+        self._AUTH_FLOW_API_HEADERS['x-guest-token'] = cast(str, self._session.cookies.get('gt'))
 
         # 極力公式の Twitter Web App に偽装するためのダミーリクエスト
         # HTTP ヘッダーは認証フロー用 API ヘッダーを使うが、CSRF トークンのみ不要なため削除
