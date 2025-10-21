@@ -4,7 +4,6 @@ import json
 import random
 import re
 import time
-from collections.abc import MutableMapping
 from io import BytesIO
 from typing import Any, Optional, TypeVar, Union, cast
 from urllib.parse import urlparse
@@ -89,7 +88,7 @@ class CookieSessionUserHandler(AuthBase):
             raise ValueError('password must not be empty string.')
 
         # HTML 取得時の HTTP リクエストヘッダー
-        self._html_headers = {
+        self._HTML_HEADERS = {
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
             'accept-encoding': 'gzip, deflate, br, zstd',
             'accept-language': 'ja',
@@ -105,16 +104,16 @@ class CookieSessionUserHandler(AuthBase):
         }
 
         # JavaScript 取得時の HTTP リクエストヘッダー
-        self._js_headers = self._html_headers.copy()
-        self._js_headers['accept'] = '*/*'
-        self._js_headers['referer'] = 'https://x.com/'
-        self._js_headers['sec-fetch-dest'] = 'script'
-        self._js_headers['sec-fetch-mode'] = 'no-cors'
-        self._js_headers['sec-fetch-site'] = 'cross-site'
-        del self._js_headers['sec-fetch-user']
+        self._JS_HEADERS = self._HTML_HEADERS.copy()
+        self._JS_HEADERS['accept'] = '*/*'
+        self._JS_HEADERS['referer'] = 'https://x.com/'
+        self._JS_HEADERS['sec-fetch-dest'] = 'script'
+        self._JS_HEADERS['sec-fetch-mode'] = 'no-cors'
+        self._JS_HEADERS['sec-fetch-site'] = 'cross-site'
+        del self._JS_HEADERS['sec-fetch-user']
 
         # 認証フロー API アクセス時の HTTP リクエストヘッダー
-        self._auth_flow_api_headers = {
+        self._AUTH_FLOW_API_HEADERS = {
             'accept': '*/*',
             'accept-encoding': 'gzip, deflate, br, zstd',
             'accept-language': 'ja',
@@ -129,14 +128,14 @@ class CookieSessionUserHandler(AuthBase):
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-site',
             'user-agent': self.USER_AGENT,
-            'x-csrf-token': None,  # ここは後でセットする
-            'x-guest-token': None,  # ここは後でセットする
+            'x-csrf-token': None,  # ここは後でセットされる
+            'x-guest-token': None,  # ここは後でセットされる
             'x-twitter-active-user': 'yes',
             'x-twitter-client-language': 'ja',
         }
 
         # GraphQL API (Twitter Web App API) アクセス時の HTTP リクエストヘッダー
-        self._graphql_api_headers = {
+        self._GRAPHQL_API_HEADERS = {
             'accept': '*/*',
             'accept-encoding': 'gzip, deflate, br, zstd',
             'accept-language': 'ja',
@@ -151,7 +150,7 @@ class CookieSessionUserHandler(AuthBase):
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-origin',
             'user-agent': self.USER_AGENT,
-            'x-csrf-token': None,  # ここは後でセットする
+            'x-csrf-token': None,  # ここは後でセットされる
             'x-twitter-active-user': 'yes',
             'x-twitter-auth-type': 'OAuth2Session',
             'x-twitter-client-language': 'ja',
@@ -161,6 +160,8 @@ class CookieSessionUserHandler(AuthBase):
         ## 実際の Twitter API へのリクエストには tweepy.API 側で作成されたセッションが利用される
         ## その際、__call__() で tweepy.API で作成されたセッションのリクエストヘッダーと Cookie を上書きしている
         self._session = curl_requests.Session(
+            # Cookie が指定されている場合は、それをセッションにセット (再ログインを省略する)
+            cookies=cookies,
             ## リダイレクトを追跡する
             allow_redirects=True,
             ## curl-cffi に実装されている中で一番新しい Chrome バージョンに偽装する
@@ -169,15 +170,11 @@ class CookieSessionUserHandler(AuthBase):
             http_version='v2',
         )
 
-        # XClientTransaction インスタンス (self._login() 実行時に初期化される)
+        # XClientTransaction インスタンス (必要になったタイミングで遅延初期化される)
         self._client_transaction: Optional[ClientTransaction] = None
 
-        # Cookie が指定されている場合は、それをセッションにセット (再ログインを省略する)
-        if cookies is not None:
-            self._session.cookies = cookies
-
-        # Cookie が指定されていない場合は、ログインを試みる
-        else:
+        # Cookie が指定されていない場合は、ここでログインを試みる
+        if cookies is None:
             self._login()
 
         # Cookie から auth_token または ct0 が取得できなかった場合
@@ -191,20 +188,16 @@ class CookieSessionUserHandler(AuthBase):
         # Cookie の "gt" 値 (ゲストトークン) を認証フロー API 用ヘッダーにセット
         guest_token = self._session.cookies.get('gt')
         if guest_token:
-            self._auth_flow_api_headers['x-guest-token'] = guest_token
+            self._AUTH_FLOW_API_HEADERS['x-guest-token'] = guest_token
 
         # Cookie の "ct0" 値 (CSRF トークン) を GraphQL API 用ヘッダーにセット
         csrf_token = self._session.cookies.get('ct0')
         if csrf_token:
-            self._auth_flow_api_headers['x-csrf-token'] = csrf_token
-            self._graphql_api_headers['x-csrf-token'] = csrf_token
+            self._AUTH_FLOW_API_HEADERS['x-csrf-token'] = csrf_token
+            self._GRAPHQL_API_HEADERS['x-csrf-token'] = csrf_token
 
-        # セッションのヘッダーを GraphQL API 用のものに差し替える
-        ## 以前は旧 TweetDeck API 用ヘッダーに差し替えていたが、旧 TweetDeck が完全廃止されたことで
-        ## 逆に怪しまれる可能性があるため GraphQL API 用ヘッダーに変更した
-        ## cross_origin=True を指定して、x.com から api.x.com にクロスオリジンリクエストを送信した際のヘッダーを模倣する
-        self._session.headers.clear()
-        self._session.headers.update(self.get_graphql_api_headers(cross_origin=True))
+        # 従来はセッションのヘッダーを GraphQL API 用のものに差し替えていたが、暗黙的に意図しないヘッダーが送信される可能性があるため、
+        # 意図的にこのライブラリから飛ばすリクエストごとに使うヘッダーを明示するような設計に変更した
 
     def __call__(self, request: PreparedRequest) -> PreparedRequest:
         """
@@ -217,10 +210,14 @@ class CookieSessionUserHandler(AuthBase):
             PreparedRequest: 認証情報を追加した PreparedRequest オブジェクト
         """
 
-        # リクエストヘッダーを認証用セッションのものに差し替える
-        # content-type を上書きしないよう、content-type を控えておいてから差し替える
+        # PreparedRequest のヘッダーを GraphQL API 用のものに差し替える
+        ## 以前は旧 TweetDeck API 用ヘッダーに差し替えていたが、旧 TweetDeck が完全廃止されたことで
+        ## 逆に怪しまれる可能性があるため GraphQL API 用ヘッダーに変更した
+        ## cross_origin=True を指定して、x.com から api.x.com にクロスオリジンリクエストを送信した際のヘッダーを模倣する
+        ## content-type を上書きしないよう、content-type を控えておいてから差し替える
         content_type = request.headers.get('content-type', None)
-        request.headers.update(cast(MutableMapping[str, str], self._session.headers))
+        graphql_api_headers = self.get_graphql_api_headers(cross_origin=True)
+        request.headers.update(graphql_api_headers)
         if content_type is not None:
             request.headers['content-type'] = content_type  # 元の content-type に戻す
 
@@ -265,7 +262,7 @@ class CookieSessionUserHandler(AuthBase):
             request.headers.pop('x-twitter-active-user', None)
             request.headers.pop('x-twitter-client-language', None)
 
-        # Cookie を認証用セッションのものに差し替える
+        # 現在のログインセッションの Cookie を取得し、PreparedRequest で送る際の Cookie にセット
         cookies = self.get_cookies()
         request._cookies.update(cookies)  # type: ignore[attr-defined]
         cookie_header = ''
@@ -277,7 +274,7 @@ class CookieSessionUserHandler(AuthBase):
         ## やらなくても大丈夫かもしれないけど、念のため
         request.hooks['response'].append(self._on_response_received)
 
-        # 認証情報を追加した PreparedRequest オブジェクトを返す
+        # HTTP ヘッダーと Cookie を追加した PreparedRequest オブジェクトを返す
         return request
 
     def apply_auth(self: Self) -> Self:
@@ -312,10 +309,10 @@ class CookieSessionUserHandler(AuthBase):
     def get_cookies_as_dict(self) -> dict[str, str]:
         """
         現在のログインセッションの Cookie を dict として取得する
-        返される dict を保存しておくことで、再ログインせずにセッションを継続できる
+        返される dict を JSON なので保存しておくことで、再ログインせずにセッションを継続できる
 
         Returns:
-            Dict[str, str]: Cookie
+            dict[str, str]: Cookie
         """
 
         return self._session.cookies.get_dict()
@@ -326,10 +323,10 @@ class CookieSessionUserHandler(AuthBase):
         Cookie やトークン類の取得のために HTML ページに HTTP リクエストを送る際の利用を想定している
 
         Returns:
-            Dict[str, str]: HTML アクセス用の HTTP リクエストヘッダー
+            dict[str, str]: HTML アクセス用の HTTP リクエストヘッダー
         """
 
-        return self._html_headers.copy()
+        return self._HTML_HEADERS.copy()
 
     def get_js_headers(self, cross_origin: bool = False) -> dict[str, str]:
         """
@@ -341,15 +338,15 @@ class CookieSessionUserHandler(AuthBase):
             cross_origin (bool, optional): x.com 以外のオリジンに送信する HTTP リクエストヘッダーかどうか. Defaults to False.
 
         Returns:
-            Dict[str, str]: JavaScript アクセス用の HTTP リクエストヘッダー
+            dict[str, str]: JavaScript アクセス用の HTTP リクエストヘッダー
         """
 
-        headers = self._js_headers.copy()
+        headers = self._JS_HEADERS.copy()
         if cross_origin is True:
             headers['sec-fetch-mode'] = 'cors'
         return headers
 
-    def get_graphql_api_headers(self, cross_origin: bool = True) -> dict[str, Optional[str]]:
+    def get_graphql_api_headers(self, cross_origin: bool = True) -> dict[str, str]:
         """
         GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダーを取得する
         このリクエストヘッダーを使い独自に API リクエストを行う際は、
@@ -360,14 +357,14 @@ class CookieSessionUserHandler(AuthBase):
             cross_origin (bool, optional): 返すヘッダーを x.com 以外のオリジンに送信するかどうか. Defaults to True.
 
         Returns:
-            Dict[str, str]: GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダー
+            dict[str, str]: GraphQL API (Twitter Web App API) アクセス用の HTTP リクエストヘッダー
         """
 
-        headers = self._graphql_api_headers.copy()
+        headers = self._GRAPHQL_API_HEADERS.copy()
         if cross_origin is False:
             headers.pop('origin', None)
             headers.pop('referer', None)
-        return headers
+        return cast(dict[str, str], headers)
 
     def logout(self) -> None:
         """
@@ -382,7 +379,7 @@ class CookieSessionUserHandler(AuthBase):
 
         # ログアウト API 専用ヘッダー
         ## self._graphql_api_headers と基本共通で、content-type だけ application/x-www-form-urlencoded に変更
-        logout_headers = self._graphql_api_headers.copy()
+        logout_headers = self._GRAPHQL_API_HEADERS.copy()
         logout_headers['content-type'] = 'application/x-www-form-urlencoded'
 
         # ログアウト API にログアウトすることを伝える
@@ -410,7 +407,7 @@ class CookieSessionUserHandler(AuthBase):
         self,
         method: curl_requests.session.HttpMethod,
         url: str,
-        headers: Optional[dict[str, Any]] = None,
+        headers: dict[str, Any],
         data: Optional[Union[dict[str, str], list[tuple[Any, ...]], str, BytesIO, bytes]] = None,
         json: Optional[Union[dict[str, Any], list[Any]]] = None,
         add_transaction_id: Optional[bool] = None,
@@ -422,7 +419,7 @@ class CookieSessionUserHandler(AuthBase):
         Args:
             method (curl_requests.session.HttpMethod): リクエストメソッド
             url (str): リクエスト URL
-            headers (Optional[dict[str, str]], optional): リクエストヘッダー. Defaults to None.
+            headers (dict[str, str]): リクエストヘッダー。誤ったリクエストヘッダーで送信されるのを防ぐために毎回明示的に設定が必要。
             data (Optional[Union[dict[str, str], list[tuple[Any, ...]], str, BytesIO, bytes]], optional): リクエストボディ. Defaults to None.
             json (Optional[Union[dict[str, Any], list[Any]]], optional): JSON ボディ. Defaults to None.
             add_transaction_id (Optional[bool], optional): X-Client-Transaction-ID を付与するかどうか. Defaults to None.
@@ -434,7 +431,8 @@ class CookieSessionUserHandler(AuthBase):
         # 明示指定がない場合、URL から X-Client-Transaction-ID を付与するか判定
         if add_transaction_id is None:
             add_transaction_id = True
-            # https://api.x.com または https://x.com/i/api/ 以下以外の URL はヘッダーを付与しない
+            # https://api.x.com または https://x.com/i/api/ 以下「以外」の URL にはヘッダーを付与しない
+            # HTML や JavaScript リソースの取得時には X-Client-Transaction-ID の付与は不要
             if not url.startswith('https://api.x.com/') and not url.startswith('https://x.com/i/api/'):
                 add_transaction_id = False
 
@@ -442,11 +440,10 @@ class CookieSessionUserHandler(AuthBase):
         # メソッドと API パスから X-Client-Transaction-ID を生成
         if add_transaction_id is True:
             transaction_id = self._generate_x_client_transaction_id(method, url)
-            # 生成した HTTP ヘッダーを追加
-            if headers is None:
-                headers = {}
+            # 生成した X-Client-Transaction-ID ヘッダーを追加
             headers['x-client-transaction-id'] = transaction_id
 
+        # リクエストを実行し、レスポンスをコールバックに渡す
         response = self._session.request(
             method,
             url,
@@ -455,6 +452,9 @@ class CookieSessionUserHandler(AuthBase):
             json=json,
         )
         self._on_response_received(response)
+
+        print(response.request.headers)
+
         return response
 
     def _generate_x_client_transaction_id(
@@ -495,14 +495,14 @@ class CookieSessionUserHandler(AuthBase):
         if self._client_transaction is not None:
             return
 
-        # 一度 https://x.com/ にアクセスする
+        # 一度 https://x.com/home にアクセスする
         ## 未ログイン時は、ゲストトークンの Cookie (Cookie 内の "gt" 値) をセットさせる
         ## 取得した HTML は X-Client-Transaction-ID 生成に必要な ondemand.js スクリプトの取得にも活用する
         home_page_response = self._session_request(
             method='GET',
-            url='https://x.com/',
-            headers=self._html_headers,
-            add_transaction_id=False,
+            url='https://x.com/home',
+            headers=self._HTML_HEADERS,  # HTML 取得用ヘッダーを使う
+            add_transaction_id=False,  # HTML リソースの取得なので付与不要
         )
         if home_page_response.status_code != 200:
             raise self._get_tweepy_exception(home_page_response)
@@ -515,8 +515,8 @@ class CookieSessionUserHandler(AuthBase):
         ondemand_js_response = self._session_request(
             method='GET',
             url=ondemand_js_url,
-            headers=self._js_headers,
-            add_transaction_id=False,
+            headers=self._JS_HEADERS,  # JavaScript 取得用ヘッダーを使う
+            add_transaction_id=False,  # JavaScript リソースの取得なので付与不要
         )
         if ondemand_js_response.status_code != 200:
             raise self._get_tweepy_exception(ondemand_js_response)
@@ -529,7 +529,7 @@ class CookieSessionUserHandler(AuthBase):
         self, response: Union[curl_requests.Response, requests.Response], *args: Any, **kwargs: Any
     ) -> None:
         """
-        レスポンスが返ってきた際に自動的に CSRF トークンを更新するコールバック
+        レスポンスが返ってきた際に、自動的にリクエストヘッダーや Cookie に設定されている CSRF トークンを更新するためのコールバック
 
         Args:
             response (requests.Response): レスポンス
@@ -537,11 +537,12 @@ class CookieSessionUserHandler(AuthBase):
 
         csrf_token = response.cookies.get('ct0')
         if csrf_token:
+            # 現在セッションに保持されている CSRF トークンと一致しない場合、新しい CSRF トークンでセッションを更新
             if self._session.cookies.get('ct0') != csrf_token:
                 self._session.cookies.set('ct0', csrf_token, domain='.x.com')
-            self._auth_flow_api_headers['x-csrf-token'] = csrf_token
-            self._graphql_api_headers['x-csrf-token'] = csrf_token
-            self._session.headers['x-csrf-token'] = csrf_token
+            # 認証フロー API 用ヘッダーと GraphQL API 用ヘッダーに新しい CSRF トークンをセット
+            self._AUTH_FLOW_API_HEADERS['x-csrf-token'] = csrf_token
+            self._GRAPHQL_API_HEADERS['x-csrf-token'] = csrf_token
 
     def _get_tweepy_exception(self, response: curl_requests.Response) -> tweepy.TweepyException:
         """
@@ -586,23 +587,23 @@ class CookieSessionUserHandler(AuthBase):
     def _get_guest_token(self) -> str:
         """
         ゲストトークン (Cookie 内の "gt" 値) を取得する
-        通常はこのメソッドを呼び出す必要はなく、_initialize_client_transaction で初期化することで副次的にセットされるはず
+        通常はこのメソッドを呼び出す必要はなく、_initialize_client_transaction() で初期化することで副次的にセットされるはず
 
         Returns:
             str: 取得されたトークン
         """
 
-        # HTTP ヘッダーは基本的に認証用セッションのものを使う
-        headers = self._auth_flow_api_headers.copy()
-        headers.pop('x-csrf-token')
-        headers.pop('x-guest-token')
+        # HTTP ヘッダーは基本的に認証用セッションの物を使うが、CSRF トークンとゲストトークンは不要なため削除
+        guest_activate_headers = self._AUTH_FLOW_API_HEADERS.copy()
+        guest_activate_headers.pop('x-csrf-token')
+        guest_activate_headers.pop('x-guest-token')
 
         # API からゲストトークンを取得する
         # ref: https://github.com/fa0311/TwitterFrontendFlow/blob/master/TwitterFrontendFlow/TwitterFrontendFlow.py#L26-L36
         guest_token_response = self._session_request(
             method='POST',
             url='https://api.x.com/1.1/guest/activate.json',
-            headers=headers,
+            headers=guest_activate_headers,
         )
         if guest_token_response.status_code != 200:
             raise self._get_tweepy_exception(guest_token_response)
@@ -740,7 +741,7 @@ class CookieSessionUserHandler(AuthBase):
         ## 同時に認証フロー API 用の HTTP リクエストヘッダーにもセット ("ct0" と "x-csrf-token" は同じ値になる)
         csrf_token = self._generate_csrf_token()
         self._session.cookies.set('ct0', csrf_token, domain='.x.com')
-        self._auth_flow_api_headers['x-csrf-token'] = csrf_token
+        self._AUTH_FLOW_API_HEADERS['x-csrf-token'] = csrf_token
 
         # まだ取得できていない場合のみ、ゲストトークンを取得し、"gt" としてセッションの Cookie に保存
         ## 通常発生しないはずだが、フォールバックとして一応実装してある（いつまで動作するのかは不明）
@@ -749,24 +750,31 @@ class CookieSessionUserHandler(AuthBase):
             self._session.cookies.set('gt', guest_token, domain='.x.com')
 
         ## ゲストトークンを認証フロー API 用の HTTP リクエストヘッダーにもセット ("gt" と "x-guest-token" は同じ値になる)
-        self._auth_flow_api_headers['x-guest-token'] = self._session.cookies.get('gt')
-
-        # これ以降は基本認証フロー API へのアクセスしか行わないので、セッションのヘッダーを認証フロー API 用のものに差し替える
-        self._session.headers.clear()
-        self._session.headers.update(self._auth_flow_api_headers)
+        self._AUTH_FLOW_API_HEADERS['x-guest-token'] = self._session.cookies.get('gt')
 
         # 極力公式の Twitter Web App に偽装するためのダミーリクエスト
+        # HTTP ヘッダーは認証フロー用 API ヘッダーを使うが、CSRF トークンのみ不要なため削除
+        hashflags_sso_init_headers = self._AUTH_FLOW_API_HEADERS.copy()
+        hashflags_sso_init_headers.pop('x-csrf-token')
         self._session_request(
             method='GET',
             url='https://api.x.com/1.1/hashflags.json',
+            headers=hashflags_sso_init_headers,
+        )
+        self._session_request(
+            method='POST',
+            url='https://api.x.com/1.1/onboarding/sso_init.json',
+            headers=hashflags_sso_init_headers,
+            json={'provider': 'apple'},
         )
 
         # https://api.x.com/1.1/onboarding/task.json?task=login に POST して認証フローを開始
         ## 認証フローを開始するには、Cookie に "ct0" と "gt" がセットされている必要がある
-        ## 2024年5月時点の Twitter Web App が送信する JSON パラメータを模倣している
+        ## 2025年10月時点の Twitter Web App が送信する JSON パラメータを模倣している
         flow_01_response = self._session_request(
             method='POST',
             url='https://api.x.com/1.1/onboarding/task.json?flow_name=login',
+            headers=self._AUTH_FLOW_API_HEADERS,  # 認証フロー用 API ヘッダーを使う
             json={
                 'input_flow_data': {
                     'flow_context': {
@@ -833,7 +841,8 @@ class CookieSessionUserHandler(AuthBase):
         js_inst_response = self._session_request(
             method='GET',
             url=js_inst_url,
-            headers=self._js_headers,
+            headers=self._JS_HEADERS,  # JavaScript 取得用ヘッダーを使う
+            add_transaction_id=False,  # JavaScript リソースの取得なので付与不要
         )
         if js_inst_response.status_code != 200:
             raise tweepy.TweepyException('Failed to get js_inst')
@@ -845,6 +854,7 @@ class CookieSessionUserHandler(AuthBase):
         flow_02_response = self._session_request(
             method='POST',
             url='https://api.x.com/1.1/onboarding/task.json',
+            headers=self._AUTH_FLOW_API_HEADERS,  # 認証フロー用 API ヘッダーを使う
             json={
                 'flow_token': get_flow_token(flow_01_response),
                 'subtask_inputs': [
@@ -868,6 +878,7 @@ class CookieSessionUserHandler(AuthBase):
         self._session_request(
             method='POST',
             url='https://api.x.com/1.1/onboarding/sso_init.json',
+            headers=hashflags_sso_init_headers,
             json={'provider': 'apple'},
         )
 
@@ -878,6 +889,7 @@ class CookieSessionUserHandler(AuthBase):
         flow_03_response = self._session_request(
             method='POST',
             url='https://api.x.com/1.1/onboarding/task.json',
+            headers=self._AUTH_FLOW_API_HEADERS,  # 認証フロー用 API ヘッダーを使う
             json={
                 'flow_token': get_flow_token(flow_02_response),
                 'subtask_inputs': [
@@ -914,6 +926,7 @@ class CookieSessionUserHandler(AuthBase):
         flow_04_response = self._session_request(
             method='POST',
             url='https://api.x.com/1.1/onboarding/task.json',
+            headers=self._AUTH_FLOW_API_HEADERS,  # 認証フロー用 API ヘッダーを使う
             json={
                 'flow_token': get_flow_token(flow_03_response),
                 'subtask_inputs': [
@@ -943,6 +956,7 @@ class CookieSessionUserHandler(AuthBase):
         flow_05_response = self._session_request(
             method='POST',
             url='https://api.x.com/1.1/onboarding/task.json',
+            headers=self._AUTH_FLOW_API_HEADERS,  # 認証フロー用 API ヘッダーを使う
             json={
                 'flow_token': get_flow_token(flow_04_response),
                 'subtask_inputs': [],
