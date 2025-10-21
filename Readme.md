@@ -34,7 +34,7 @@
 > **`account/verify_credentials`・`statuses/home_timeline`・`followers/list` など、上記以外の一部 API は今なお残存しており、tweepy と tweepy-authlib を組み合わせることでアクセス可能です (下記サンプルコードを参照) 。**  
 > ただし、リストにない API も既に廃止されている可能性があることに注意してください。
 >
-> **現在 tweepy-authlib を利用して上記機能を実装するには、別途 GraphQL API (Twitter Web App の内部 API) クライアントを自作する必要があります。**  
+> **現在 tweepy-authlib を利用して上記の廃止された API 機能を再現するには、別途 GraphQL API (Twitter Web App の内部 API) クライアントを自作する必要があります。**  
 > 私が [KonomiTV](https://github.com/tsukumijima/KonomiTV) 向けに開発した GraphQL API クライアントの実装が [こちら](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/utils/TwitterGraphQLAPI.py) ([使用例](https://github.com/tsukumijima/KonomiTV/blob/master/server/app/routers/TwitterRouter.py)) にありますので、参考になれば幸いです。  
 > また現時点で廃止されていない API を利用したサンプルコードが [example_json.py](example_json.py) と [example_pickle.py](example_pickle.py) にありますので、そちらもご一読ください。
 
