@@ -309,7 +309,7 @@ class CookieSessionUserHandler(AuthBase):
     def get_cookies_as_dict(self) -> dict[str, str]:
         """
         現在のログインセッションの Cookie を dict として取得する
-        返される dict を JSON なので保存しておくことで、再ログインせずにセッションを継続できる
+        返される dict を JSON などで保存しておくことで、再ログインせずにセッションを継続できる
 
         Returns:
             dict[str, str]: Cookie
@@ -452,8 +452,6 @@ class CookieSessionUserHandler(AuthBase):
             json=json,
         )
         self._on_response_received(response)
-
-        print(response.request.headers)
 
         return response
 

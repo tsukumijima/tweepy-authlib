@@ -88,14 +88,6 @@ def test_login_with_cookies(tweet: bool = False):
             print('-' * terminal_size)
         print('=' * terminal_size)
 
-        print('Following (3 users):')
-        print('-' * terminal_size)
-        friends = user.friends(count=3)
-        for friend in friends:
-            pprint(friend._json)
-            print('-' * terminal_size)
-        print('=' * terminal_size)
-
         print('Home timeline (3 tweets):')
         print('-' * terminal_size)
         home_timeline = api.home_timeline(count=3)

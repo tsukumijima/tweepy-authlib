@@ -27,10 +27,11 @@
 > - `statuses/bookmarks` : ブックマーク一覧
 > - `translations/show` : 翻訳されたツイート詳細
 > - `favorites/list` : ユーザーのいいね！一覧
+> - `friends/list` : ユーザーのフォロー一覧 (2025年10月中旬廃止)
 > - `lists/statuses` : リストのツイート一覧
 > 
 > 2025年10月時点では、2023年09月にサーバー負荷が高い API が一括で廃止された以降、大きな動きはありません。  
-> **`account/verify_credentials`・`statuses/home_timeline`・フォロー/フォロワー情報関連 API など、上記以外の一部 API は今なお残存しており、tweepy + tweepy-authlib から利用可能です (下記サンプルコードを参照) 。**  
+> **`account/verify_credentials`・`statuses/home_timeline`・`followers/list` など、上記以外の一部 API は今なお残存しており、tweepy と tweepy-authlib を組み合わせることでアクセス可能です (下記サンプルコードを参照) 。**  
 > ただし、リストにない API も既に廃止されている可能性があることに注意してください。
 >
 > **現在 tweepy-authlib を利用して上記機能を実装するには、別途 GraphQL API (Twitter Web App の内部 API) クライアントを自作する必要があります。**  
@@ -181,14 +182,6 @@ for follower in followers:
     print('-' * terminal_size)
 print('=' * terminal_size)
 
-print('Following (3 users):')
-print('-' * terminal_size)
-friends = user.friends(count=3)
-for friend in friends:
-    pprint(friend._json)
-    print('-' * terminal_size)
-print('=' * terminal_size)
-
 print('Home timeline (3 tweets):')
 print('-' * terminal_size)
 home_timeline = api.home_timeline(count=3)
@@ -292,14 +285,6 @@ print('-' * terminal_size)
 followers = user.followers(count=3)
 for follower in followers:
     pprint(follower._json)
-    print('-' * terminal_size)
-print('=' * terminal_size)
-
-print('Following (3 users):')
-print('-' * terminal_size)
-friends = user.friends(count=3)
-for friend in friends:
-    pprint(friend._json)
     print('-' * terminal_size)
 print('=' * terminal_size)
 
