@@ -120,7 +120,9 @@ class CookieSessionUserHandler(AuthBase):
             'accept': '*/*',
             'accept-encoding': 'gzip, deflate, br, zstd',
             'accept-language': 'ja',
-            'authorization': self.TWITTER_WEB_APP_BEARER_TOKEN,
+            # 本来は Twitter Web App の Bearer トークンを使うべきだが、旧 TweetDeck 用の Bearer トークンを使うと
+            # なぜか castle_token 必須化後も Bot 判定されずに突破できるっぽいので、当面これを使う
+            'authorization': self.TWEETDECK_BEARER_TOKEN,
             'content-type': 'application/json',
             'origin': 'https://x.com',
             'referer': 'https://x.com/',
