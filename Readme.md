@@ -5,8 +5,9 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/tweepy-authlib.svg)](https://pypi.org/project/tweepy-authlib)
 
 > [!IMPORTANT]  
-> **2025年10月リリースの tweepy-authlib v1.6.0 以降では、長らく動作していなかったログイン処理が正常に動作するようになりました！また、Python 3.12・3.13 に対応しました。**  
+> **2025年10月リリースの tweepy-authlib v1.7.0 以降では、長らく動作していなかったログイン処理が正常に動作するようになりました！また、Python 3.12・3.13 に対応しました。**  
 > [curl-cffi](https://github.com/lexiforest/curl_cffi) を使い API リクエスト時の TLS フィンガープリントを Chrome に偽装し、また [X-Client-Transaction-ID ヘッダーを生成](https://github.com/iSarabjitDhiman/XClientTransaction)・付与した状態でリクエストすることで、ログインの成功確率が大幅に向上しています。  
+> さらに、取得済みの Cookie で Twitter API v1.1 にアクセスする際の Bot 判定対策も大幅に強化されています。  
 > **凍結やアカウントロックのリスクを下げるためにも、最新版の tweepy-authlib の利用をおすすめします。**
 > 
 > なお、**ログイン実績のない IP からログインを実行すると、ほぼ確実に確認コードの入力が必要となり、このライブラリではログイン処理に失敗します。**  
