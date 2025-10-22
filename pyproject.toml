@@ -30,6 +30,7 @@ dependencies = [
     "beautifulsoup4>=4.13.1",
     "curl-cffi>=0.13.0",
     "js2py-3.13>=0.74.1",
+    "pycryptodomex>=3.20.0",
     "tweepy>=4.12.1",
     "xclienttransaction>=1.0.0",
 ]

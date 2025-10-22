@@ -22,6 +22,7 @@ from x_client_transaction.transaction import ClientTransaction
 from x_client_transaction.utils import get_ondemand_file_url
 
 from tweepy_authlib.__about__ import __version__
+from tweepy_authlib.XPFFHeaderGenerator import XPFFHeaderGenerator
 
 
 Self = TypeVar('Self', bound='CookieSessionUserHandler')
@@ -175,8 +176,12 @@ class CookieSessionUserHandler(AuthBase):
             http_version='v2',
         )
 
-        # XClientTransaction インスタンス (必要になったタイミングで遅延初期化される)
+        # X-Client-Transaction-ID ヘッダーを生成するために使う XClientTransaction インスタンス
+        # 必要になったタイミングで遅延初期化される
         self._client_transaction: Optional[ClientTransaction] = None
+
+        # X-XP-Forwarded-For ヘッダーを生成するために使う XPFFHeaderGenerator インスタンス
+        self._xpff_header_generator = XPFFHeaderGenerator(user_agent=self.USER_AGENT)
 
         # castle_token のキャッシュ管理用変数
         self._castle_token: Optional[str] = None
@@ -219,7 +224,7 @@ class CookieSessionUserHandler(AuthBase):
             PreparedRequest: 認証情報を追加した PreparedRequest オブジェクト
         """
 
-        # PreparedRequest のヘッダーを GraphQL API 用のものに差し替える
+        # PreparedRequest が持つ HTTP ヘッダーを GraphQL API 用のものに差し替える
         ## 以前は旧 TweetDeck API 用ヘッダーに差し替えていたが、旧 TweetDeck が完全廃止されたことで
         ## 逆に怪しまれる可能性があるため GraphQL API 用ヘッダーに変更した
         ## cross_origin=True を指定して、x.com から api.x.com にクロスオリジンリクエストを送信した際のヘッダーを模倣する
@@ -230,18 +235,33 @@ class CookieSessionUserHandler(AuthBase):
         if content_type is not None:
             request.headers['content-type'] = content_type  # 元の content-type に戻す
 
-        # リクエストがまだ *.twitter.com に対して行われている場合は、*.x.com に差し替える
+        # 現在のログインセッションの Cookie を取得し、PreparedRequest で送る際の Cookie にセット
+        cookies = self.get_cookies()
+        request._cookies.update(cookies)  # type: ignore[attr-defined]
+        cookie_header = ''
+        for key, value in cookies.get_dict().items():
+            cookie_header += f'{key}={value}; '
+        request.headers['cookie'] = cookie_header.rstrip('; ')
+
+        # API リクエストがまだ *.twitter.com に対して行われている場合は、*.x.com に差し替える
         ## サードパーティー向け API は互換性のため引き続き api.twitter.com でアクセスできるはずだが、
         ## tweepy-authlib でアクセスしている API は内部 API のため、api.twitter.com のままアクセスしていると怪しまれる可能性がある
         assert request.url is not None
         request.url = request.url.replace('twitter.com/', 'x.com/')
 
         # API にリクエストする際は原則 X-Client-Transaction-ID ヘッダーを付与する
-        # アップロード系 API のみ、この後の処理で X-Client-Transaction-ID ヘッダーを削除した上でリクエストされる
-        if request.method is not None:
-            http_method = cast(curl_requests.session.HttpMethod, request.method.upper())
-            transaction_id = self._generate_x_client_transaction_id(http_method, request.url)
-            request.headers['x-client-transaction-id'] = transaction_id
+        ## アップロード系 API のみ、この後の処理で X-Client-Transaction-ID ヘッダーを削除した上でリクエストされる
+        ## twitter.com を x.com に置換してから実行するのが重要
+        assert request.method is not None
+        http_method = cast(curl_requests.session.HttpMethod, request.method.upper())
+        transaction_id = self._generate_x_client_transaction_id(http_method, request.url)
+        request.headers['x-client-transaction-id'] = transaction_id
+
+        # API にリクエストする際は原則 X-XP-Forwarded-For ヘッダーを付与する
+        ## アップロード系 API のみ、この後の処理で X-XP-Forwarded-For ヘッダーを削除した上でリクエストされる
+        guest_id = cookies.get_dict().get('guest_id', '')  # guest_id はゲストトークンとは異なる
+        xpff_header = self._xpff_header_generator.generate(guest_id)
+        request.headers['x-xp-forwarded-for'] = xpff_header
 
         # Twitter API v1.1 の一部 API には旧 TweetDeck 用の Bearer トークンでないとアクセスできないため、
         # 該当の API のみ旧 TweetDeck 用の Bearer トークンに差し替える
@@ -270,14 +290,7 @@ class CookieSessionUserHandler(AuthBase):
             request.headers.pop('x-client-transaction-id', None)
             request.headers.pop('x-twitter-active-user', None)
             request.headers.pop('x-twitter-client-language', None)
-
-        # 現在のログインセッションの Cookie を取得し、PreparedRequest で送る際の Cookie にセット
-        cookies = self.get_cookies()
-        request._cookies.update(cookies)  # type: ignore[attr-defined]
-        cookie_header = ''
-        for key, value in cookies.get_dict().items():
-            cookie_header += f'{key}={value}; '
-        request.headers['cookie'] = cookie_header.rstrip('; ')
+            request.headers.pop('x-xp-forwarded-for', None)
 
         # API からレスポンスが返ってきた際に自動で CSRF トークンを更新する
         ## やらなくても大丈夫かもしれないけど、念のため
@@ -451,6 +464,14 @@ class CookieSessionUserHandler(AuthBase):
             transaction_id = self._generate_x_client_transaction_id(method, url)
             # 生成した X-Client-Transaction-ID ヘッダーを追加
             headers['x-client-transaction-id'] = transaction_id
+
+        # API リクエストに対応する X-Client-Transaction-ID ヘッダーの付与が有効なとき、
+        # ゲストトークンから X-XP-Forwarded-For ヘッダーを生成
+        ## X-Client-Transaction-ID を付与する場合は X-XP-Forwarded-For ヘッダーも付与するべき
+        if add_transaction_id is True:
+            guest_id = self.get_cookies_as_dict().get('guest_id', '')  # guest_id はゲストトークンとは異なる
+            xpff_header = self._xpff_header_generator.generate(guest_id)
+            headers['x-xp-forwarded-for'] = xpff_header
 
         # リクエストを実行し、レスポンスをコールバックに渡す
         response = self._session.request(
