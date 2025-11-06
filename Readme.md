@@ -5,8 +5,9 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/tweepy-authlib.svg)](https://pypi.org/project/tweepy-authlib)
 
 > [!WARNING]  
-> 2025年11月追記: tweepy-authlib と近い方法で Twitter API v1.1 にアクセスしていた OldTweetDeck のユーザーが凍結祭りに遭った事から、今後このライブラリの利用は推奨しません。  
-> Twitter API v1.1 自体が数年を経て段階的に廃止傾向にあることから、X Pro 用 API キーでなら回避できていた問題に関しても今後対策される可能性が大いにあります。
+> **2025年11月追記: tweepy-authlib と近い方法で Twitter API v1.1 にアクセスしていた OldTweetDeck のユーザーが凍結祭りに遭った事から、今後このライブラリの利用は推奨しません。**  
+> Twitter API v1.1 自体が数年を経て段階的に廃止傾向にあることから、X Pro 用 API キーでなら回避できていた問題に関しても今後対策される可能性が大いにあります。  
+> もし今後もスクレイピングを続ける方は、実際のブラウザから取得した Cookie を使ってのログインを強く推奨します。
 
 > [!IMPORTANT]  
 > **2025年10月リリースの tweepy-authlib v1.7.0 以降では、長らく動作していなかったログイン処理が正常に動作するようになりました！また、Python 3.12・3.13 に対応しました。**  
