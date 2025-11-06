@@ -4,6 +4,10 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/tweepy-authlib.svg)](https://pypi.org/project/tweepy-authlib)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/tweepy-authlib.svg)](https://pypi.org/project/tweepy-authlib)
 
+> [!WARNING]  
+> 2025年11月追記: tweepy-authlib と近い方法で Twitter API v1.1 にアクセスしていた OldTweetDeck のユーザーが凍結祭りに遭った事から、今後このライブラリの利用は推奨しません。  
+> Twitter API v1.1 自体が数年を経て段階的に廃止傾向にあることから、X Pro 用 API キーでなら回避できていた問題に関しても今後対策される可能性が大いにあります。
+
 > [!IMPORTANT]  
 > **2025年10月リリースの tweepy-authlib v1.7.0 以降では、長らく動作していなかったログイン処理が正常に動作するようになりました！また、Python 3.12・3.13 に対応しました。**  
 > [curl-cffi](https://github.com/lexiforest/curl_cffi) を使い API リクエスト時の TLS フィンガープリントを Chrome に偽装し、また [X-Client-Transaction-ID ヘッダーを生成](https://github.com/iSarabjitDhiman/XClientTransaction)・付与した状態でリクエストすることで、ログインの成功確率が大幅に向上しています。  
@@ -191,17 +195,6 @@ for status in home_timeline:
     print('-' * terminal_size)
 print('=' * terminal_size)
 
-tweet_id = home_timeline[0].id
-print('Like tweet:')
-print('-' * terminal_size)
-pprint(api.create_favorite(tweet_id)._json)
-print('=' * terminal_size)
-
-print('Unlike tweet:')
-print('-' * terminal_size)
-pprint(api.destroy_favorite(tweet_id)._json)
-print('=' * terminal_size)
-
 # 継続してログインしない場合は明示的にログアウト
 ## 単に Cookie を消去するだけだと Twitter にセッションが残り続けてしまう
 ## ログアウト後は、取得した Cookie は再利用できなくなる
@@ -295,17 +288,6 @@ home_timeline = api.home_timeline(count=3)
 for status in home_timeline:
     pprint(status._json)
     print('-' * terminal_size)
-print('=' * terminal_size)
-
-tweet_id = home_timeline[0].id
-print('Like tweet:')
-print('-' * terminal_size)
-pprint(api.create_favorite(tweet_id)._json)
-print('=' * terminal_size)
-
-print('Unlike tweet:')
-print('-' * terminal_size)
-pprint(api.destroy_favorite(tweet_id)._json)
 print('=' * terminal_size)
 
 # 継続してログインしない場合は明示的にログアウト

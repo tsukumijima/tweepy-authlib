@@ -88,17 +88,6 @@ for status in home_timeline:
     print('-' * terminal_size)
 print('=' * terminal_size)
 
-tweet_id = home_timeline[0].id
-print('Like tweet:')
-print('-' * terminal_size)
-pprint(api.create_favorite(tweet_id)._json)
-print('=' * terminal_size)
-
-print('Unlike tweet:')
-print('-' * terminal_size)
-pprint(api.destroy_favorite(tweet_id)._json)
-print('=' * terminal_size)
-
 # 継続してログインしない場合は明示的にログアウト
 ## 単に Cookie を消去するだけだと Twitter にセッションが残り続けてしまう
 ## ログアウト後は、取得した Cookie は再利用できなくなる

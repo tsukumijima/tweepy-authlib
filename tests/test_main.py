@@ -96,17 +96,6 @@ def test_login_with_cookies(tweet: bool = False):
             print('-' * terminal_size)
         print('=' * terminal_size)
 
-        tweet_id = home_timeline[0].id
-        print('Like tweet:')
-        print('-' * terminal_size)
-        pprint(api.create_favorite(tweet_id)._json)
-        print('=' * terminal_size)
-
-        print('Unlike tweet:')
-        print('-' * terminal_size)
-        pprint(api.destroy_favorite(tweet_id)._json)
-        print('=' * terminal_size)
-
         auth_handler.logout()
     else:
         pytest.skip('TWITTER_SCREEN_NAME or TWITTER_PASSWORD is not set.')
