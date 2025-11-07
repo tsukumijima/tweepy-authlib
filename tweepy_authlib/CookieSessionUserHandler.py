@@ -266,21 +266,21 @@ class CookieSessionUserHandler(AuthBase):
         # 該当の API のみ旧 TweetDeck 用の Bearer トークンに差し替える
         # それ以外の API ではそのまま Twitter Web App の Bearer トークンを使い続けることで、不審判定される可能性を下げる
         ## OldTweetDeck の interception.js に記載の API のうち、明示的に PUBLIC_TOKENS[1] が設定されている API が対象
-        ## 2025年11月追記: この手法で v1.1 へアクセスしていた OldTweetDeck のユーザーが凍結祭りに遭った事から、
-        ## 安全のため、比較的危険性の低い API を除き Bearer トークンを差し替えないようにする
         ## ref: https://github.com/dimdenGD/OldTweetDeck/blob/main/src/interception.js
-        TWEETDECK_BEARER_TOKEN_REQUIRED_APIS = [
-            '/1.1/statuses/home_timeline.json',
-            # '/1.1/statuses/mentions_timeline.json',
-            # '/1.1/activity/about_me.json',
-            # '/1.1/favorites/',
-            # '/1.1/collections/',
-            '/1.1/users/show.json',
-            '/1.1/account/verify_credentials.json',
-            # '/1.1/translations/show.json',
-        ]
-        if any(api_url in request.url for api_url in TWEETDECK_BEARER_TOKEN_REQUIRED_APIS):
-            request.headers['authorization'] = self.TWEETDECK_BEARER_TOKEN
+        ## 2025年11月追記: この手法で v1.1 へアクセスしていた OldTweetDeck のユーザーが凍結祭りに遭った事から、
+        ## アカウントの安全のため、すべてのエンドポイントで Bearer トークンを差し替えないようにする
+        # TWEETDECK_BEARER_TOKEN_REQUIRED_APIS = [
+        #     '/1.1/statuses/home_timeline.json',
+        #     '/1.1/statuses/mentions_timeline.json',
+        #     '/1.1/activity/about_me.json',
+        #     '/1.1/favorites/',
+        #     '/1.1/collections/',
+        #     '/1.1/users/show.json',
+        #     '/1.1/account/verify_credentials.json',
+        #     '/1.1/translations/show.json',
+        # ]
+        # if any(api_url in request.url for api_url in TWEETDECK_BEARER_TOKEN_REQUIRED_APIS):
+        #     request.headers['authorization'] = self.TWEETDECK_BEARER_TOKEN
 
         # upload.x.com (upload.twitter.com) 以下の API のみ、Twitter Web App の挙動に合わせいくつかのヘッダーを追加削除する
         if 'upload.x.com' in request.url or 'upload.twitter.com' in request.url:
