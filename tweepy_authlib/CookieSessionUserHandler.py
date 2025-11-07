@@ -4,6 +4,7 @@ import json
 import random
 import re
 import time
+import warnings
 from io import BytesIO
 from typing import Any, Optional, TypeVar, Union, cast
 from urllib.parse import urlparse
@@ -24,6 +25,13 @@ from tweepy_authlib.XPFFHeaderGenerator import XPFFHeaderGenerator
 
 
 Self = TypeVar('Self', bound='CookieSessionUserHandler')
+
+DEPRECATION_WARNING_MESSAGE = (
+    'On November 6, 2025, accounts accessing the API via tweepy-authlib-like flows were temporarily mass suspended before X rolled the action back. '
+    'Continuing to use this library is dangerous and it will no longer receive active maintenance. '
+    'Please discontinue use; if you must proceed, authenticate with cookies exported from a logged-in browser session. '
+    'Avoid calling the API with CookieSessionUserHandler.TWEETDECK_BEARER_TOKEN on non-X Premium accounts because it drastically increases the risk of suspension.'
+)
 
 
 class CookieSessionUserHandler(AuthBase):
@@ -73,6 +81,13 @@ class CookieSessionUserHandler(AuthBase):
             tweepy.HTTPException: サーバーエラーなどの問題でログインに失敗した
             tweepy.TweepyException: 認証フローの途中でエラーが発生し、ログインに失敗した
         """
+
+        # 2025年11月06日に発生した大量凍結へ注意喚起する DeprecationWarning を表示
+        warnings.warn(
+            DEPRECATION_WARNING_MESSAGE,
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         self.screen_name = screen_name
         self.password = password
@@ -222,6 +237,13 @@ class CookieSessionUserHandler(AuthBase):
         Returns:
             PreparedRequest: 認証情報を追加した PreparedRequest オブジェクト
         """
+
+        # 毎回のリクエスト実行時に DeprecationWarning でリスクを再通知
+        warnings.warn(
+            DEPRECATION_WARNING_MESSAGE,
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         # PreparedRequest が持つ HTTP ヘッダーを GraphQL API 用のものに差し替える
         ## 以前は旧 TweetDeck API 用ヘッダーに差し替えていたが、旧 TweetDeck が完全廃止されたことで
