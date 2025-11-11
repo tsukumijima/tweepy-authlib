@@ -231,13 +231,6 @@ class CookieSessionUserHandler(AuthBase):
             PreparedRequest: 認証情報を追加した PreparedRequest オブジェクト
         """
 
-        # 毎回のリクエスト実行時に DeprecationWarning でリスクを再通知
-        warnings.warn(
-            DEPRECATION_WARNING_MESSAGE,
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
         # PreparedRequest が持つ HTTP ヘッダーを GraphQL API 用のものに差し替える
         ## 以前は旧 TweetDeck API 用ヘッダーに差し替えていたが、旧 TweetDeck が完全廃止されたことで
         ## 逆に怪しまれる可能性があるため GraphQL API 用ヘッダーに変更した
@@ -263,18 +256,25 @@ class CookieSessionUserHandler(AuthBase):
         assert request.url is not None
         request.url = request.url.replace('twitter.com/', 'x.com/')
 
-        # API にリクエストする際は原則 X-Client-Transaction-ID ヘッダーを付与する
-        ## アップロード系 API のみ、X-Client-Transaction-ID ヘッダーは付与する必要がない
+        # アップロード系 API を除き、毎回のリクエスト実行時に DeprecationWarning でリスクを再通知
+        if 'upload.x.com' not in request.url:
+            warnings.warn(
+                DEPRECATION_WARNING_MESSAGE,
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        # API にリクエストする際は、アップロード系 API を除き原則 X-Client-Transaction-ID ヘッダーを付与する
         ## 上記で twitter.com を x.com に置換してから実行するのが重要
-        if 'upload.x.com' not in request.url and 'upload.twitter.com' not in request.url:
+        if 'upload.x.com' not in request.url:
             assert request.method is not None
             http_method = cast(curl_requests.session.HttpMethod, request.method.upper())
             transaction_id = self._generate_x_client_transaction_id(http_method, request.url)
             request.headers['x-client-transaction-id'] = transaction_id
 
-        # API にリクエストする際は原則 X-XP-Forwarded-For ヘッダーを付与する
-        ## アップロード系 API のみ、X-XP-Forwarded-For ヘッダーは付与する必要がない
-        if 'upload.x.com' not in request.url and 'upload.twitter.com' not in request.url:
+        # API にリクエストする際は、アップロード系 API を除き原則 X-XP-Forwarded-For ヘッダーを付与する
+        ## 上記で twitter.com を x.com に置換してから実行するのが重要
+        if 'upload.x.com' not in request.url:
             guest_id = cookies.get_dict().get('guest_id', '')  # guest_id はゲストトークンとは異なる
             xpff_header = self._xpff_header_generator.generate(guest_id)
             request.headers['x-xp-forwarded-for'] = xpff_header
@@ -299,8 +299,8 @@ class CookieSessionUserHandler(AuthBase):
         # if any(api_url in request.url for api_url in TWEETDECK_BEARER_TOKEN_REQUIRED_APIS):
         #     request.headers['authorization'] = self.TWEETDECK_BEARER_TOKEN
 
-        # upload.x.com (upload.twitter.com) 以下の API のみ、Twitter Web App の挙動に合わせいくつかのヘッダーを追加削除する
-        if 'upload.x.com' in request.url or 'upload.twitter.com' in request.url:
+        # upload.x.com 以下の API のみ、Twitter Web App の挙動に合わせいくつかのヘッダーを追加削除する
+        if 'upload.x.com' in request.url:
             # x.com から見て upload.x.com の API リクエストはクロスオリジンになるため、必ず origin と referer を追加する
             request.headers['origin'] = 'https://x.com'
             request.headers['referer'] = 'https://x.com/'
