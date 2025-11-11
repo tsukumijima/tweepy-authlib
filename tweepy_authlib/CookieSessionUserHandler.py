@@ -82,13 +82,6 @@ class CookieSessionUserHandler(AuthBase):
             tweepy.TweepyException: 認証フローの途中でエラーが発生し、ログインに失敗した
         """
 
-        # 2025年11月06日に発生した大量凍結へ注意喚起する DeprecationWarning を表示
-        warnings.warn(
-            DEPRECATION_WARNING_MESSAGE,
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
         self.screen_name = screen_name
         self.password = password
 
@@ -830,6 +823,13 @@ class CookieSessionUserHandler(AuthBase):
                             return subtask
                     raise tweepy.TweepyException(f'{subtask_id} not found in response')
             raise self._get_tweepy_exception(response)
+
+        # 2025年11月06日に発生した大量凍結へ注意喚起する DeprecationWarning を表示
+        warnings.warn(
+            DEPRECATION_WARNING_MESSAGE,
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         # Cookie をクリア
         self._session.cookies.clear()
