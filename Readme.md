@@ -6,8 +6,14 @@
 
 > [!WARNING]  
 > **2025年11月追記: tweepy-authlib と近い方法で Twitter API v1.1 にアクセスしていた OldTweetDeck のユーザーが凍結祭りに遭った事から、今後このライブラリの利用は推奨しません。**  
-> Twitter API v1.1 自体が数年を経て段階的に廃止傾向にあることから、X Pro 用 API キーでなら回避できていた問題に関しても今後対策される可能性が大いにあります。  
-> もし今後もスクレイピングを続ける方は、実際のブラウザから取得した Cookie を使ってのログインを強く推奨します。
+> 
+> Twitter API v1.1 自体、数年を経て内部的にも段階的に廃止傾向にあります。したがって、従来 [旧 TweetDeck や X Pro で使われていた Bearer トークン](https://github.com/tsukumijima/tweepy-authlib/blob/master/tweepy_authlib/CookieSessionUserHandler.py#L58-L60) でなら回避できていた問題に関しても、今後対策される可能性が大いにあります。  
+> 特に、**2025年10月頃からは Web 版 Twitter のログインフォームに [castle.io](https://castle.io/) の Bot 対策ソリューションが導入されています。**  
+> 現時点では旧 TweetDeck や X Pro で使われている Bearer トークンを使うことで突破できていますが、明らかに通常と異なる API リクエストを送信するため、より怪しまれる可能性が高くなると考えられます。  
+> **今後も tweepy-authlib でスクレイピングを続ける方は、実際のブラウザから取得した Cookie を使ってのログインを強く推奨します。**  
+> 
+> 元々このライブラリは、Twitter API v1.1 の廃止以降も [KonomiTV](https://github.com/tsukumijima/KonomiTV) の Twitter 実況機能を維持するために開発されたものです。  
+> 今回の騒動を受けて KonomiTV ではヘッドレスブラウザを用いたアプローチに移行したため、今後、このライブラリは基本的にメンテナンスされない予定です。
 
 > [!IMPORTANT]  
 > **2025年10月リリースの tweepy-authlib v1.7.0 以降では、長らく動作していなかったログイン処理が正常に動作するようになりました！また、Python 3.12・3.13 に対応しました。**  
