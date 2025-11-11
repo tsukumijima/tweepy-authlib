@@ -552,9 +552,9 @@ class CookieSessionUserHandler(AuthBase):
         )
         if home_page_response.status_code != 200:
             raise self._get_tweepy_exception(home_page_response)
+        home_page_response_soup = BeautifulSoup(home_page_response.content, 'html.parser')
 
         # X-Client-Transaction-ID 生成に必要な ondemand.js スクリプトを取得
-        home_page_response_soup = BeautifulSoup(home_page_response.text, 'html.parser')
         ondemand_js_url = get_ondemand_file_url(home_page_response_soup)
         if ondemand_js_url is None:
             raise tweepy.TweepyException('Failed to locate ondemand script for X-Client-Transaction-ID')
@@ -568,8 +568,7 @@ class CookieSessionUserHandler(AuthBase):
             raise self._get_tweepy_exception(ondemand_js_response)
 
         # XClientTransaction インスタンスを初期化
-        ondemand_js_response_soup = BeautifulSoup(ondemand_js_response.text, 'html.parser')
-        self._client_transaction = ClientTransaction(home_page_response_soup, ondemand_js_response_soup)
+        self._client_transaction = ClientTransaction(home_page_response_soup, ondemand_js_response.text)
 
     def _on_response_received(
         self, response: Union[curl_requests.Response, requests.Response], *args: Any, **kwargs: Any
