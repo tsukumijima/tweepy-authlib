@@ -271,18 +271,20 @@ class CookieSessionUserHandler(AuthBase):
         request.url = request.url.replace('twitter.com/', 'x.com/')
 
         # API にリクエストする際は原則 X-Client-Transaction-ID ヘッダーを付与する
-        ## アップロード系 API のみ、この後の処理で X-Client-Transaction-ID ヘッダーを削除した上でリクエストされる
-        ## twitter.com を x.com に置換してから実行するのが重要
-        assert request.method is not None
-        http_method = cast(curl_requests.session.HttpMethod, request.method.upper())
-        transaction_id = self._generate_x_client_transaction_id(http_method, request.url)
-        request.headers['x-client-transaction-id'] = transaction_id
+        ## アップロード系 API のみ、X-Client-Transaction-ID ヘッダーは付与する必要がない
+        ## 上記で twitter.com を x.com に置換してから実行するのが重要
+        if 'upload.x.com' not in request.url and 'upload.twitter.com' not in request.url:
+            assert request.method is not None
+            http_method = cast(curl_requests.session.HttpMethod, request.method.upper())
+            transaction_id = self._generate_x_client_transaction_id(http_method, request.url)
+            request.headers['x-client-transaction-id'] = transaction_id
 
         # API にリクエストする際は原則 X-XP-Forwarded-For ヘッダーを付与する
-        ## アップロード系 API のみ、この後の処理で X-XP-Forwarded-For ヘッダーを削除した上でリクエストされる
-        guest_id = cookies.get_dict().get('guest_id', '')  # guest_id はゲストトークンとは異なる
-        xpff_header = self._xpff_header_generator.generate(guest_id)
-        request.headers['x-xp-forwarded-for'] = xpff_header
+        ## アップロード系 API のみ、X-XP-Forwarded-For ヘッダーは付与する必要がない
+        if 'upload.x.com' not in request.url and 'upload.twitter.com' not in request.url:
+            guest_id = cookies.get_dict().get('guest_id', '')  # guest_id はゲストトークンとは異なる
+            xpff_header = self._xpff_header_generator.generate(guest_id)
+            request.headers['x-xp-forwarded-for'] = xpff_header
 
         # Twitter API v1.1 の一部 API には旧 TweetDeck 用の Bearer トークンでないとアクセスできないため、
         # 該当の API のみ旧 TweetDeck 用の Bearer トークンに差し替える
